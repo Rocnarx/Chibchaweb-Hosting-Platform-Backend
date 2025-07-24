@@ -1,0 +1,50 @@
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+.ENV/
+
+# VSCode settings
+.vscode/
+
+# Python logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# PyInstaller
+*.spec
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Render build output
+render.yaml
+.DS_Store
+
+# Node/Frontend
+node_modules/
+*.tsbuildinfo
+dist/
+build/
+
+# System files
+Thumbs.db
