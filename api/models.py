@@ -12,3 +12,13 @@ class DomainStatus(BaseModel):
 class AlternativesResponse(BaseModel):
     domain: str
     alternativas: List[DomainStatus]
+
+class DominioPago(BaseModel):
+    iddominio: str
+    precio: float
+
+class PagoRequest(BaseModel):
+    idcuenta: str
+    idmetodopago: int
+    idcuentametodopago: str
+    dominios: list[DominioPago]
