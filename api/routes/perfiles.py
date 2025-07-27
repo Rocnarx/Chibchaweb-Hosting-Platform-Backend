@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 import random
+from sqlalchemy.orm import Session
 from api.database import SessionLocal
-from api.models import MetodoPagoCuentaCreate, TarjetaCreate
-from api.models_sqlalchemy import MetodoPagoCuenta, Tarjeta
+from api.models_sqlalchemy import Cuenta
+from api.models import RolUsuarioResponse, CuentaCreate
+from passlib.hash import bcrypt
 
 router = APIRouter()
 
@@ -15,34 +16,46 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/tarjeta")
-def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)):
-    nueva_tarjeta = Tarjeta(
-        IDTIPOTARJETA=tarjeta_data.idtipotarjeta,
-        NUMEROTARJETA=tarjeta_data.numerotarjeta,
-        CCV=tarjeta_data.ccv,
-        FECHAVTO=tarjeta_data.fechavto
+@router.get("/usuario/rol", response_model=RolUsuarioResponse)
+def obtener_rol_usuario(nombrecuenta: str, db: Session = Depends(get_db)):
+    cuenta = (
+        db.query(Cuenta)
+        .join(Cuenta.TIPOCUENTA)
+        .filter(Cuenta.NOMBRECUENTA == nombrecuenta)
+        .first()
     )
 
-    db.add(nueva_tarjeta)
-    db.commit()
-    db.refresh(nueva_tarjeta)  # Obtener el ID autogenerado
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
 
-    return {
-        "mensaje": "Tarjeta registrada correctamente",
-        "idtarjeta": nueva_tarjeta.IDTARJETA
-    }
-
-@router.post("/metodopago")
-def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_db)):
-    metodo = MetodoPagoCuenta(
-        IDMETODOPAGOCUENTA=data.idmetodopagocuenta,
-        IDTARJETA=data.idtarjeta,
-        IDCUENTA=data.idcuenta,
-        IDTIPOMETODOPAGO=data.idtipometodopago,
-        ACTIVOMETODOPAGOCUENTA=data.activometodopagocuenta
+    return RolUsuarioResponse(
+        nombrecuenta=cuenta.NOMBRECUENTA,
+        nombretipo=cuenta.TIPOCUENTA.NOMBRETIPO
     )
 
-    db.add(metodo)
+@router.post("/registrar")
+def registrar_cuenta(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
+    now_str = datetime.now().strftime("%Y%m%d%H%M%S")
+    idcuenta = f"{random.randint(1, 9)}{now_str}"
+
+    hashed_password = bcrypt.hash(cuenta_data.password)
+
+    cuenta = Cuenta(
+        IDCUENTA=idcuenta,
+        IDTIPOCUENTA=cuenta_data.idtipocuenta,
+        IDPAIS=cuenta_data.idpais,
+        IDPLAN=cuenta_data.idplan,
+        PASSWORD=hashed_password,
+        IDENTIFICACION=cuenta_data.identificacion,
+        NOMBRECUENTA=cuenta_data.nombrecuenta,
+        CORREO=cuenta_data.correo,
+        TELEFONO=cuenta_data.telefono,
+        FECHAREGISTRO=datetime.now().date(),
+        DIRECCION=cuenta_data.direccion
+    )
+
+    db.add(cuenta)
     db.commit()
-    return {"mensaje": "Método de pago registrado correctamente"}
+    db.refresh(cuenta)
+
+    return {"message": "Cuenta registrada exitosamente", "idcuenta": cuenta.IDCUENTA}
