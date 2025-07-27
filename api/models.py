@@ -52,3 +52,46 @@ class MetodoPagoCuentaCreate(BaseModel):
     idcuenta: str
     idtipometodopago: int
     activometodopagocuenta: bool
+
+class DominioCreate(BaseModel):
+    iddominio: str
+    nombrepagina: str
+    preciodominio: float
+    ocupado: bool
+
+class CarritoCreate(BaseModel):
+    idestadocarrito: str
+    idcuenta: str
+    idmetodopagocuenta: str
+
+class CarritoCreate(BaseModel):
+    idestadocarrito: str
+    idcuenta: str
+    idmetodopagocuenta: str
+
+class CarritoDominioCreate(BaseModel):
+    iddominio: str
+    idcarrito: int
+    idcarritodominio: str
+
+class CarritoUpdate(BaseModel):
+    idcarrito: int
+    idestadocarrito: str
+
+class CarritoDominioDelete(BaseModel):
+    iddominio: str
+    idcarrito: int
+    idcarritodominio: str
+
+class DominioEnCarrito(BaseModel):
+    cuenta: str
+    carrito: int
+    iddominio: str
+    dominio: str
+    precio: float
+
+class FacturaCreate(BaseModel):
+    idcarrito: int
+
+class CarritoEstadoUpdate(BaseModel):
+    idcarrito: int

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, PagoRequest, DominioPago
+from fastapi import APIRouter, Depends, HTTPException, Query
+from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito
+from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-from datetime import date
 from ..database import SessionLocal
 import requests
+from typing import List
 from bs4 import BeautifulSoup
 
 router = APIRouter()
@@ -53,7 +53,7 @@ def parse_data(html: str) -> dict:
     return result
 
 # Endpoint WHOIS
-@router.post("/Dominios", response_model=AlternativesResponse)
+@router.post("/DominiosDisponible", response_model=AlternativesResponse)
 def verificar_extensiones(data: DomainRequest):
     base = data.domain.strip().lower()
     alternativas = []
@@ -76,3 +76,45 @@ def verificar_extensiones(data: DomainRequest):
             ))
 
     return AlternativesResponse(domain=base, alternativas=alternativas)
+
+# Endpoint para agregar dominio a la base
+@router.post("/agregarDominio")
+def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
+    if db.query(Dominio).filter_by(IDDOMINIO=dominio_data.iddominio).first():
+        raise HTTPException(status_code=400, detail="ID de dominio ya registrado.")
+
+    nuevo_dominio = Dominio(
+        IDDOMINIO=dominio_data.iddominio,
+        NOMBREPAGINA=dominio_data.nombrepagina,
+        PRECIODOMINIO=dominio_data.preciodominio,
+        OCUPADO=dominio_data.ocupado
+    )
+
+    db.add(nuevo_dominio)
+    db.commit()
+    db.refresh(nuevo_dominio)
+
+    return {"message": "Dominio registrado exitosamente", "id": nuevo_dominio.IDDOMINIO}
+
+@router.get("/carrito/dominios", response_model=List[DominioEnCarrito])
+def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depends(get_db)):
+    resultados = (
+        db.query(
+            Cuenta.IDCUENTA.label("cuenta"),
+            Carrito.IDCARRITO.label("carrito"),
+            Dominio.IDDOMINIO.label("iddominio"),
+            Dominio.NOMBREPAGINA.label("dominio"),
+            Dominio.PRECIODOMINIO.label("precio")
+        )
+        .join(MetodoPagoCuenta, MetodoPagoCuenta.IDCUENTA == Cuenta.IDCUENTA)
+        .join(Carrito, Carrito.IDMETODOPAGOCUENTA == MetodoPagoCuenta.IDMETODOPAGOCUENTA)
+        .join(CarritoDominio, CarritoDominio.IDCARRITO == Carrito.IDCARRITO)
+        .join(Dominio, Dominio.IDDOMINIO == CarritoDominio.IDDOMINIO)
+        .filter(Carrito.IDESTADOCARRITO == "2", Cuenta.IDCUENTA == idcuenta)
+        .all()
+    )
+
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron dominios para el carrito facturado")
+
+    return resultados
