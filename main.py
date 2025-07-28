@@ -12,7 +12,7 @@ app.include_router(router, dependencies=[Depends(verificar_api_key)])
 
 origins = [
     "http://localhost:5173",
-    "https://tu-frontend-en-produccion.com",
+    "https://chibchaweb-hosting-platform-frontend-production.up.railway.app",
 ]
 
 app.add_middleware(
