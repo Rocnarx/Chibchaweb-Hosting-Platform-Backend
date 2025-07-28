@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from api.models import CarritoCreate, CarritoDominioCreate, CarritoUpdate, CarritoDominioDelete
 from api.models_sqlalchemy import Carrito, CarritoDominio
 from api.database import SessionLocal
@@ -93,3 +93,24 @@ def eliminar_dominio_de_carrito(data: CarritoDominioDelete, db: Session = Depend
     db.commit()
 
     return {"message": "Dominio eliminado del carrito correctamente"}
+
+@router.get("/carrito/obtener-por-cuenta")
+def obtener_carritos_por_cuenta(idcuenta: str, db: Session = Depends(get_db)):
+    carritos = (
+        db.query(Carrito)
+        .options(joinedload(Carrito.ESTADOCARRITO_REL))
+        .filter_by(IDCUENTA=idcuenta)
+        .all()
+    )
+
+    if not carritos:
+        raise HTTPException(status_code=404, detail="No se encontraron carritos para esta cuenta.")
+
+    resultado = []
+    for c in carritos:
+        resultado.append({
+            "idcarrito": c.IDCARRITO,
+            "estadocarrito": c.ESTADOCARRITO_REL.NOMESTADOCARRITO
+        })
+
+    return resultado

@@ -117,6 +117,7 @@ class Carrito(Base):
     IDCUENTA = Column("IDCUENTA", String(15), ForeignKey("CUENTA.IDCUENTA"), nullable=False)
     IDMETODOPAGOCUENTA = Column("IDMETODOPAGOCUENTA", String(3), ForeignKey("METODOPAGOCUENTA.IDMETODOPAGOCUENTA"), nullable=False)
 
+    ESTADOCARRITO_REL = relationship("EstadoCarrito", backref="carritos")
 
 class CarritoDominio(Base):
     __tablename__ = "CARRITODOMINIO"
