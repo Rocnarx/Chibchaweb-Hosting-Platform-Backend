@@ -209,8 +209,7 @@ def agregar_dominio_a_carrito(data: AgregarDominioRequest, db: Session = Depends
 
     nuevo_item = CarritoDominio(
         IDDOMINIO=data.iddominio,
-        IDCARRITO=carrito.IDCARRITO,
-        IDCARRITODOMINIO=str(uuid.uuid4())[:10]
+        IDCARRITO=carrito.IDCARRITO
     )
     db.add(nuevo_item)
     db.commit()
