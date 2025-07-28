@@ -18,10 +18,10 @@ def get_db():
 @router.post("/tarjeta")
 def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)):
     nueva_tarjeta = Tarjeta(
-        idtipotarjeta=tarjeta_data.idtipotarjeta,
-        numerotarjeta=tarjeta_data.numerotarjeta,
-        ccv=tarjeta_data.ccv,
-        fechavto=tarjeta_data.fechavto
+        IDTIPOTARJETA=tarjeta_data.idtipotarjeta,
+        NUMEROTARJETA=tarjeta_data.numerotarjeta,
+        CCV=tarjeta_data.ccv,
+        FECHAVTO=tarjeta_data.fechavto
     )
 
     db.add(nueva_tarjeta)
@@ -30,17 +30,17 @@ def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)
 
     return {
         "mensaje": "Tarjeta registrada correctamente",
-        "idtarjeta": nueva_tarjeta.idtarjeta
+        "idtarjeta": nueva_tarjeta.IDTARJETA
     }
 
 @router.post("/metodopago")
 def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_db)):
     metodo = MetodoPagoCuenta(
-        idmetodopagocuenta=data.idmetodopagocuenta,
-        idtarjeta=data.idtarjeta,
-        idcuenta=data.idcuenta,
-        idtipometodopago=data.idtipometodopago,
-        activometodopagocuenta=data.activometodopagocuenta
+        IDMETODOPAGOCUENTA=data.idmetodopagocuenta,
+        IDTARJETA=data.idtarjeta,
+        IDCUENTA=data.idcuenta,
+        IDTIPOMETODOPAGO=data.idtipometodopago,
+        ACTIVOMETODOPAGOCUENTA=data.activometodopagocuenta
     )
 
     db.add(metodo)

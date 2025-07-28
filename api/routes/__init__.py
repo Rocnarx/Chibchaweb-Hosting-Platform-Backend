@@ -5,6 +5,7 @@ from .perfiles import router as perfiles_router
 from .tarjeta import router as tarjeta_router
 from .pagos import router as pagos_router
 from .landing import router as landing_router
+from .metodospago import router as metodospago_router
 router = APIRouter()
 router.include_router(carrito_router)
 router.include_router(dominios_router)
@@ -12,3 +13,4 @@ router.include_router(perfiles_router)
 router.include_router(tarjeta_router)
 router.include_router(pagos_router)
 router.include_router(landing_router)
+router.include_router(metodospago_router)

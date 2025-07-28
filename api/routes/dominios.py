@@ -1,17 +1,47 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito
+from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequest
 from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 import requests
 from typing import List
 from bs4 import BeautifulSoup
+from xml.etree.ElementTree import Element, SubElement, ElementTree
+import smtplib
+from email.message import EmailMessage
+import os
+from io import BytesIO
+
 
 router = APIRouter()
+
 
 HEADERS = { "User-Agent": "Mozilla/5.0" }
 BASE_URL = "https://who.is/whois/"
 EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]
+
+def enviar_xml_por_correo(nombre_archivo: str, contenido_bytes: bytes):
+    remitente = os.getenv("EMAIL_REMITENTE")
+    password = os.getenv("EMAIL_CONTRASENA")
+    destinatario = os.getenv("EMAIL_REMITENTE")
+
+    msg = EmailMessage()
+    msg["Subject"] = "Solicitud de Dominio CHIBCHAWEB"
+    msg["From"] = remitente
+    msg["To"] = destinatario
+    msg.set_content("Se adjunta la solicitud del dominio registrado. GRACIAS POR CONFIAR")
+
+    msg.add_attachment(
+        contenido_bytes,
+        maintype="application",
+        subtype="xml",
+        filename=nombre_archivo
+    )
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(remitente, password)
+        smtp.send_message(msg)
+
 
 # Dependency para obtener una sesión DB
 def get_db():
@@ -77,7 +107,6 @@ def verificar_extensiones(data: DomainRequest):
 
     return AlternativesResponse(domain=base, alternativas=alternativas)
 
-# Endpoint para agregar dominio a la base
 @router.post("/agregarDominio")
 def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
     if db.query(Dominio).filter_by(IDDOMINIO=dominio_data.iddominio).first():
@@ -95,6 +124,41 @@ def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
     db.refresh(nuevo_dominio)
 
     return {"message": "Dominio registrado exitosamente", "id": nuevo_dominio.IDDOMINIO}
+
+@router.put("/ActualizarOcupadoDominio")
+def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Session = Depends(get_db)):
+    dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
+    if not dominio:
+        raise HTTPException(status_code=404, detail="Dominio no encontrado")
+
+    cuenta = db.query(Cuenta).filter_by(IDENTIFICACION=data.identificacion).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada para el dominio")
+
+    dominio.OCUPADO = data.ocupado
+    db.commit()
+    db.refresh(dominio)
+
+    mensaje = {"message": "Estado de dominio actualizado", "ocupado": dominio.OCUPADO}
+
+    if dominio.OCUPADO:
+        # Crear XML en memoria
+        root = Element("SolicitudDominio")
+        SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
+        SubElement(root, "NombrePagina").text = dominio.NOMBREPAGINA
+        SubElement(root, "PrecioDominio").text = str(dominio.PRECIODOMINIO)
+
+        buffer = BytesIO()
+        tree = ElementTree(root)
+        tree.write(buffer, encoding="utf-8", xml_declaration=True)
+        xml_bytes = buffer.getvalue()
+
+        # Enviar XML por correo
+        enviar_xml_por_correo(f"solicitud_{dominio.NOMBREPAGINA}.xml", xml_bytes)
+
+        mensaje["correo"] = "Solicitud enviada por email"
+
+    return mensaje
 
 @router.get("/carrito/dominios", response_model=List[DominioEnCarrito])
 def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depends(get_db)):

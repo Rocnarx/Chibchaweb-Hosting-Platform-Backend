@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import date
+from decimal import Decimal
 
 class DomainRequest(BaseModel):
     domain: str  # sin extensión
@@ -56,8 +57,9 @@ class MetodoPagoCuentaCreate(BaseModel):
 class DominioCreate(BaseModel):
     iddominio: str
     nombrepagina: str
-    preciodominio: float
+    preciodominio: Decimal
     ocupado: bool
+    identificacion: str  # este campo extra para poder asociar el dominio a la cuenta
 
 class CarritoCreate(BaseModel):
     idestadocarrito: str
@@ -99,3 +101,16 @@ class CarritoEstadoUpdate(BaseModel):
 class LoginRequest(BaseModel):
     identificacion: str
     password: str
+
+class ActualizarOcupadoDominioRequest(BaseModel):
+    iddominio: str
+    identificacion: str
+    ocupado: bool
+
+class MetodoPagoUsuario(BaseModel):
+    identificacion: str
+    numerotarjeta: str
+    tipotarjeta: int
+
+class ListaMetodoPagoResponse(BaseModel):
+    metodos_pago: List[MetodoPagoUsuario]

@@ -16,23 +16,6 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/usuario/rol", response_model=RolUsuarioResponse)
-def obtener_rol_usuario(nombrecuenta: str, db: Session = Depends(get_db)):
-    cuenta = (
-        db.query(Cuenta)
-        .join(Cuenta.TIPOCUENTA)
-        .filter(Cuenta.NOMBRECUENTA == nombrecuenta)
-        .first()
-    )
-
-    if not cuenta:
-        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
-
-    return RolUsuarioResponse(
-        nombrecuenta=cuenta.NOMBRECUENTA,
-        nombretipo=cuenta.TIPOCUENTA.NOMBRETIPO
-    )
-
 @router.post("/registrar")
 def registrar_cuenta(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
     now_str = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -62,7 +45,11 @@ def registrar_cuenta(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
-    cuenta = db.query(Cuenta).filter(Cuenta.IDENTIFICACION == data.identificacion).first()
+    cuenta = (
+        db.query(Cuenta)
+        .filter(Cuenta.IDENTIFICACION == data.identificacion)
+        .first()
+    )
 
     if not cuenta:
         raise HTTPException(status_code=404, detail="Cuenta no encontrada")
@@ -74,5 +61,12 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "message": "Inicio de sesión exitoso",
         "idcuenta": cuenta.IDCUENTA,
         "nombrecuenta": cuenta.NOMBRECUENTA,
-        "idtipocuenta": cuenta.IDTIPOCUENTA
+        "identificacion": cuenta.IDENTIFICACION,
+        "tipocuenta": cuenta.TIPOCUENTA_REL.NOMBRETIPO if cuenta.TIPOCUENTA_REL else None,
+        "pais": cuenta.PAIS_REL.NOMBREPAIS if cuenta.PAIS_REL else None,
+        "plan": cuenta.PLAN_REL.NOMBREPLAN if cuenta.PLAN_REL else None,
+        "correo": cuenta.CORREO,
+        "telefono": cuenta.TELEFONO,
+        "fecharegistro": cuenta.FECHAREGISTRO.isoformat(),
+        "direccion": cuenta.DIRECCION
     }

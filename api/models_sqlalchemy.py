@@ -10,8 +10,10 @@ class TipoCuenta(Base):
     IDTIPOCUENTA = Column("IDTIPOCUENTA", Numeric(2), primary_key=True)
     NOMBRETIPO = Column("NOMBRETIPO", String(30), nullable=False)
 
-    cuentas = relationship("Cuenta", back_populates="TIPOCUENTA")
+    CUENTAS = relationship("Cuenta", back_populates="TIPOCUENTA_REL")
 
+
+from sqlalchemy.orm import relationship
 
 class Cuenta(Base):
     __tablename__ = "CUENTA"
@@ -20,6 +22,7 @@ class Cuenta(Base):
     IDTIPOCUENTA = Column("IDTIPOCUENTA", Numeric(2), ForeignKey("TIPOCUENTA.IDTIPOCUENTA"), nullable=False)
     IDPAIS = Column("IDPAIS", Numeric(3), ForeignKey("PAIS.IDPAIS"), nullable=False)
     IDPLAN = Column("IDPLAN", String(15), ForeignKey("PLAN.IDPLAN"), nullable=True)
+
     PASSWORD = Column("PASSWORD", String(50), nullable=False)
     IDENTIFICACION = Column("IDENTIFICACION", String(15), nullable=False)
     NOMBRECUENTA = Column("NOMBRECUENTA", String(150), nullable=False)
@@ -28,28 +31,35 @@ class Cuenta(Base):
     FECHAREGISTRO = Column("FECHAREGISTRO", Date, nullable=False)
     DIRECCION = Column("DIRECCION", String(30))
 
-    TIPOCUENTA = relationship("TipoCuenta", back_populates="cuentas")
-    PAIS = relationship("Pais", back_populates="cuentas")
-    PLAN = relationship("Plan", back_populates="cuentas")
+    # Relaciones
+    TIPOCUENTA_REL = relationship("TipoCuenta", back_populates="CUENTAS")
+    PAIS_REL = relationship("Pais", back_populates="CUENTAS")
+    PLAN_REL = relationship("Plan", back_populates="CUENTAS")
+    METODOSPAGO = relationship("MetodoPagoCuenta", back_populates="CUENTA_REL")
+
+
+
 
 
 class Plan(Base):
     __tablename__ = "PLAN"
 
-    IDPLAN = Column("IDPLAN", String(15), primary_key=True)
-    NOMBREPLAN = Column("NOMBREPLAN", String(15), nullable=False)
-    COMISION = Column("COMISION", Numeric(2), nullable=False)
+    IDPLAN = Column(String(15), primary_key=True)
+    NOMBREPLAN = Column(String(15), nullable=False)
+    COMISION = Column(Numeric(2), nullable=False)
 
-    cuentas = relationship("Cuenta", back_populates="PLAN")
+    CUENTAS = relationship("Cuenta", back_populates="PLAN_REL")
+
 
 
 class Pais(Base):
     __tablename__ = "PAIS"
 
-    IDPAIS = Column("IDPAIS", Numeric(3), primary_key=True)
-    NOMBREPAIS = Column("NOMBREPAIS", String(15), nullable=False)
+    IDPAIS = Column(Numeric(3), primary_key=True)
+    NOMBREPAIS = Column(String(15), nullable=False)
 
-    cuentas = relationship("Cuenta", back_populates="PAIS")
+    CUENTAS = relationship("Cuenta", back_populates="PAIS_REL")
+
 
 
 class Tarjeta(Base):
@@ -70,6 +80,10 @@ class MetodoPagoCuenta(Base):
     IDCUENTA = Column("IDCUENTA", String(15), ForeignKey("CUENTA.IDCUENTA"))
     IDTIPOMETODOPAGO = Column("IDTIPOMETODOPAGO", Numeric(2), ForeignKey("TIPOMETODOPAGO.IDTIPOMETODOPAGO"))
     ACTIVOMETODOPAGOCUENTA = Column("ACTIVOMETODOPAGOCUENTA", Boolean, nullable=False)
+
+    CUENTA_REL = relationship("Cuenta", back_populates="METODOSPAGO")
+    TARJETA_REL = relationship("Tarjeta")  # Ya debe estar si no, agrégala también
+
 
 
 class TipoMetodoPago(Base):
