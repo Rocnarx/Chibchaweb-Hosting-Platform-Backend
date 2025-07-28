@@ -95,3 +95,7 @@ class FacturaCreate(BaseModel):
 
 class CarritoEstadoUpdate(BaseModel):
     idcarrito: int
+
+class LoginRequest(BaseModel):
+    identificacion: str
+    password: str

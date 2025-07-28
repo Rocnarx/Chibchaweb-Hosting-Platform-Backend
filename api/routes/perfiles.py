@@ -4,7 +4,7 @@ import random
 from sqlalchemy.orm import Session
 from api.database import SessionLocal
 from api.models_sqlalchemy import Cuenta
-from api.models import RolUsuarioResponse, CuentaCreate
+from api.models import RolUsuarioResponse, CuentaCreate, LoginRequest
 from passlib.hash import bcrypt
 
 router = APIRouter()
@@ -59,3 +59,20 @@ def registrar_cuenta(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
     db.refresh(cuenta)
 
     return {"message": "Cuenta registrada exitosamente", "idcuenta": cuenta.IDCUENTA}
+
+@router.post("/login")
+def login(data: LoginRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDENTIFICACION == data.identificacion).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    if not bcrypt.verify(data.password, cuenta.PASSWORD):
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+
+    return {
+        "message": "Inicio de sesión exitoso",
+        "idcuenta": cuenta.IDCUENTA,
+        "nombrecuenta": cuenta.NOMBRECUENTA,
+        "idtipocuenta": cuenta.IDTIPOCUENTA
+    }
