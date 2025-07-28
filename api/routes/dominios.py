@@ -174,7 +174,7 @@ def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depend
         .join(Carrito, Carrito.IDMETODOPAGOCUENTA == MetodoPagoCuenta.IDMETODOPAGOCUENTA)
         .join(CarritoDominio, CarritoDominio.IDCARRITO == Carrito.IDCARRITO)
         .join(Dominio, Dominio.IDDOMINIO == CarritoDominio.IDDOMINIO)
-        .filter(Carrito.IDESTADOCARRITO == "1", Cuenta.IDCUENTA == idcuenta)
+        .filter(Carrito.IDESTADOCARRITO != "0", Cuenta.IDCUENTA == idcuenta)
         .all()
     )
 
