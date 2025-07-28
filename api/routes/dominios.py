@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequest
+from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequest, AgregarDominioRequest
 from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
@@ -11,7 +11,7 @@ import smtplib
 from email.message import EmailMessage
 import os
 from io import BytesIO
-
+import uuid
 
 router = APIRouter()
 
@@ -182,3 +182,38 @@ def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depend
         raise HTTPException(status_code=404, detail="No se encontraron dominios para el carrito facturado")
 
     return resultados
+
+@router.post("/dominios/agregar-a-carrito-existente")
+def agregar_dominio_a_carrito(data: AgregarDominioRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter_by(IDCUENTA=data.idcuenta).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
+    if not dominio:
+        raise HTTPException(status_code=404, detail="Dominio no encontrado")
+    if dominio.OCUPADO:
+        raise HTTPException(status_code=400, detail="Dominio ya está ocupado")
+
+    carrito = db.query(Carrito).filter_by(IDCUENTA=data.idcuenta, IDESTADOCARRITO='1').first()
+    if not carrito:
+        raise HTTPException(status_code=404, detail="No hay carrito activo para esta cuenta")
+
+
+    ya_existe = db.query(CarritoDominio).filter_by(IDDOMINIO=data.iddominio, IDCARRITO=carrito.IDCARRITO).first()
+    if ya_existe:
+        raise HTTPException(status_code=400, detail="Este dominio ya está en el carrito")
+
+    nuevo_item = CarritoDominio(
+        IDDOMINIO=data.iddominio,
+        IDCARRITO=carrito.IDCARRITO,
+        IDCARRITODOMINIO=str(uuid.uuid4())[:10]
+    )
+    db.add(nuevo_item)
+    db.commit()
+
+    return {
+        "message": "Dominio agregado exitosamente al carrito activo",
+        "idcarrito": carrito.IDCARRITO,
+        "iddominio": data.iddominio
+    }

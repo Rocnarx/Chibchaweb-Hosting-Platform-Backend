@@ -114,3 +114,7 @@ class MetodoPagoUsuario(BaseModel):
 
 class ListaMetodoPagoResponse(BaseModel):
     metodos_pago: List[MetodoPagoUsuario]
+
+class AgregarDominioRequest(BaseModel):
+    iddominio: str
+    idcuenta: str
