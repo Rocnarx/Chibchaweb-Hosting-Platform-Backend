@@ -20,15 +20,14 @@ HEADERS = { "User-Agent": "Mozilla/5.0" }
 BASE_URL = "https://who.is/whois/"
 EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]
 
-def enviar_xml_por_correo(nombre_archivo: str, contenido_bytes: bytes):
+def enviar_xml_por_correo(nombre_archivo: str, contenido_bytes: bytes, destinatario: str):
     remitente = os.getenv("EMAIL_REMITENTE")
     password = os.getenv("EMAIL_CONTRASENA")
-    destinatario = os.getenv("EMAIL_REMITENTE")
 
     msg = EmailMessage()
     msg["Subject"] = "Solicitud de Dominio CHIBCHAWEB"
     msg["From"] = remitente
-    msg["To"] = destinatario
+    msg["To"] = destinatario  # Usamos el correo de la cuenta
     msg.set_content("Se adjunta la solicitud del dominio registrado. GRACIAS POR CONFIAR")
 
     msg.add_attachment(
@@ -166,7 +165,8 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Sessio
         tree.write(buffer, encoding="utf-8", xml_declaration=True)
         xml_bytes = buffer.getvalue()
 
-        enviar_xml_por_correo(f"solicitud_{dominio.NOMBREPAGINA}.xml", xml_bytes)
+        # Enviar XML por correo a la dirección de la cuenta
+        enviar_xml_por_correo(f"solicitud_{dominio.NOMBREPAGINA}.xml", xml_bytes, cuenta.CORREO)
         mensaje["correo"] = "Solicitud enviada por email"
 
     return mensaje
