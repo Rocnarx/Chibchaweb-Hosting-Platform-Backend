@@ -78,22 +78,6 @@ def actualizar_carrito(data: CarritoUpdate, db: Session = Depends(get_db)):
         "nuevo_estado": carrito.IDESTADOCARRITO
     }
 
-@router.delete("/eliminarDominioDeCarrito")
-def eliminar_dominio_de_carrito(data: CarritoDominioDelete, db: Session = Depends(get_db)):
-    dominio = db.query(CarritoDominio).filter_by(
-        IDDOMINIO=data.iddominio,
-        IDCARRITO=data.idcarrito,
-        IDCARRITODOMINIO=data.idcarritodominio
-    ).first()
-
-    if not dominio:
-        raise HTTPException(status_code=404, detail="El dominio no existe en el carrito")
-
-    db.delete(dominio)
-    db.commit()
-
-    return {"message": "Dominio eliminado del carrito correctamente"}
-
 @router.get("/carrito/obtener-por-cuenta")
 def obtener_carritos_por_cuenta(idcuenta: str, db: Session = Depends(get_db)):
     carritos = (
@@ -114,3 +98,16 @@ def obtener_carritos_por_cuenta(idcuenta: str, db: Session = Depends(get_db)):
         })
 
     return resultado
+
+@router.delete("/EliminarDominioCarrito")
+def eliminar_dominio_carrito(idcuenta: str, iddominio: str, db: Session = Depends(get_db)):
+   
+    car_dominio = db.query(CarritoDominio).join(Carrito).filter(Carrito.IDCUENTA == idcuenta, CarritoDominio.IDDOMINIO == iddominio).first()
+
+    if not car_dominio:
+        raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada")
+
+    db.delete(car_dominio)
+    db.commit()
+
+    return {"message": f"Dominio {iddominio} eliminado del carrito de la cuenta {idcuenta} exitosamente."}

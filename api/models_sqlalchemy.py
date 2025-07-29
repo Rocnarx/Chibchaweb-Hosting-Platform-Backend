@@ -75,15 +75,14 @@ class Tarjeta(Base):
 class MetodoPagoCuenta(Base):
     __tablename__ = "METODOPAGOCUENTA"
 
-    IDMETODOPAGOCUENTA = Column("IDMETODOPAGOCUENTA", String(3), primary_key=True)
+    IDMETODOPAGOCUENTA = Column("IDMETODOPAGOCUENTA", Integer, primary_key=True, autoincrement=True)  # Aquí está el cambio
     IDTARJETA = Column("IDTARJETA", String(15), ForeignKey("TARJETA.IDTARJETA"))
     IDCUENTA = Column("IDCUENTA", String(15), ForeignKey("CUENTA.IDCUENTA"))
     IDTIPOMETODOPAGO = Column("IDTIPOMETODOPAGO", Numeric(2), ForeignKey("TIPOMETODOPAGO.IDTIPOMETODOPAGO"))
     ACTIVOMETODOPAGOCUENTA = Column("ACTIVOMETODOPAGOCUENTA", Boolean, nullable=False)
 
     CUENTA_REL = relationship("Cuenta", back_populates="METODOSPAGO")
-    TARJETA_REL = relationship("Tarjeta")  # Ya debe estar si no, agrégala también
-
+    TARJETA_REL = relationship("Tarjeta")
 
 
 class TipoMetodoPago(Base):
