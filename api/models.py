@@ -104,7 +104,6 @@ class LoginRequest(BaseModel):
 
 class ActualizarOcupadoDominioRequest(BaseModel):
     iddominio: str
-    identificacion: str
     ocupado: bool
 
 class MetodoPagoUsuario(BaseModel):

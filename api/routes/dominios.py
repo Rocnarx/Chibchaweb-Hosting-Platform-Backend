@@ -127,14 +127,27 @@ def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
 
 @router.put("/ActualizarOcupadoDominio")
 def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Session = Depends(get_db)):
+    # Buscar el dominio por su ID
     dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
     if not dominio:
         raise HTTPException(status_code=404, detail="Dominio no encontrado")
 
-    cuenta = db.query(Cuenta).filter_by(IDENTIFICACION=data.identificacion).first()
-    if not cuenta:
-        raise HTTPException(status_code=404, detail="Cuenta no encontrada para el dominio")
+    # Buscar la relación en CARRITODOMINIO
+    car_dominio = db.query(CarritoDominio).filter_by(IDDOMINIO=data.iddominio).first()
+    if not car_dominio:
+        raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada")
 
+    # Buscar el carrito
+    carrito = db.query(Carrito).filter_by(IDCARRITO=car_dominio.IDCARRITO).first()
+    if not carrito:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+
+    # Buscar la cuenta usando IDCUENTA del carrito
+    cuenta = db.query(Cuenta).filter_by(IDCUENTA=carrito.IDCUENTA).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    # Actualizar estado de dominio
     dominio.OCUPADO = data.ocupado
     db.commit()
     db.refresh(dominio)
@@ -142,7 +155,7 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Sessio
     mensaje = {"message": "Estado de dominio actualizado", "ocupado": dominio.OCUPADO}
 
     if dominio.OCUPADO:
-        # Crear XML en memoria
+        # Crear XML
         root = Element("SolicitudDominio")
         SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
         SubElement(root, "NombrePagina").text = dominio.NOMBREPAGINA
@@ -153,12 +166,12 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Sessio
         tree.write(buffer, encoding="utf-8", xml_declaration=True)
         xml_bytes = buffer.getvalue()
 
-        # Enviar XML por correo
         enviar_xml_por_correo(f"solicitud_{dominio.NOMBREPAGINA}.xml", xml_bytes)
-
         mensaje["correo"] = "Solicitud enviada por email"
 
     return mensaje
+
+
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Query
