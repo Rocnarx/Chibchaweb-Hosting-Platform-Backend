@@ -160,6 +160,10 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Sessio
 
     return mensaje
 
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, Query
+from typing import List
+
 @router.get("/carrito/dominios", response_model=List[DominioEnCarrito])
 def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depends(get_db)):
     resultados = (
