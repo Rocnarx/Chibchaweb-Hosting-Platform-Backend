@@ -36,7 +36,6 @@ def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)
 @router.post("/metodopago")
 def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_db)):
     metodo = MetodoPagoCuenta(
-        IDMETODOPAGOCUENTA=data.idmetodopagocuenta,
         IDTARJETA=data.idtarjeta,
         IDCUENTA=data.idcuenta,
         IDTIPOMETODOPAGO=data.idtipometodopago,

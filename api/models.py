@@ -48,7 +48,6 @@ class TarjetaCreate(BaseModel):
     fechavto: date
 
 class MetodoPagoCuentaCreate(BaseModel):
-    idmetodopagocuenta: str
     idtarjeta: str
     idcuenta: str
     idtipometodopago: int
@@ -60,11 +59,6 @@ class DominioCreate(BaseModel):
     preciodominio: Decimal
     ocupado: bool
     identificacion: str  # este campo extra para poder asociar el dominio a la cuenta
-
-class CarritoCreate(BaseModel):
-    idestadocarrito: str
-    idcuenta: str
-    idmetodopagocuenta: str
 
 class CarritoCreate(BaseModel):
     idestadocarrito: str
@@ -117,3 +111,9 @@ class ListaMetodoPagoResponse(BaseModel):
 class AgregarDominioRequest(BaseModel):
     iddominio: str
     idcuenta: str
+
+class TarjetaRequest(BaseModel):
+    numero_tarjeta: str
+    ccv: str
+    fecha_vto: str
+    id_cuenta: str
