@@ -18,7 +18,16 @@ router = APIRouter()
 
 HEADERS = { "User-Agent": "Mozilla/5.0" }
 BASE_URL = "https://who.is/whois/"
-EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]
+
+# Cargar extensiones desde precios.json
+try:
+    RUTA_JSON = Path(__file__).resolve().parent.parent / "precios.json"
+    with open(RUTA_JSON, "r", encoding="utf-8") as archivo:
+        data = json.load(archivo)
+    EXTENSIONS = list(data.keys())
+except Exception as e:
+    print("Error cargando extensiones desde precios.json:", e)
+    EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]  # fallback mínimo
 
 def enviar_xml_por_correo(nombre_archivo: str, contenido_bytes: bytes, destinatario: str):
     remitente = os.getenv("EMAIL_REMITENTE")
