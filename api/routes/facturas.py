@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
 from api.DTO.models_sqlalchemy import Carrito, Factura
-from api.DTO.models import ObtenerFacturasRequest
 
 router = APIRouter()
 

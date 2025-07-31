@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends
 from api.routes import router
 from api.DAO.database import engine, Base
-import api.DTO.models_sqlalchemy
 from fastapi.middleware.cors import CORSMiddleware
 from api.security import verificar_api_key
 

@@ -12,7 +12,7 @@ from email.message import EmailMessage
 import os
 from io import BytesIO
 import uuid
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 router = APIRouter()
 
 
