@@ -121,3 +121,8 @@ class TarjetaRequest(BaseModel):
 class TarjetaValidarResponse(BaseModel):
     valid: bool 
     mensaje: str
+
+class TransferenciaDominioRequest(BaseModel):
+    iddominio: str 
+    idcuenta_origen: str  
+    correo_destino: str 

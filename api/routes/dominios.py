@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest
+from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest,TransferenciaDominioRequest
 from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
@@ -81,30 +81,43 @@ def parse_data(html: str) -> dict:
 
     return result
 
-# Endpoint WHOIS
 @router.post("/DominiosDisponible", response_model=AlternativesResponse)
-def verificar_extensiones(data: DomainRequest):
+def verificar_extensiones(data: DomainRequest, db: Session = Depends(get_db)):
     base = data.domain.strip().lower()
     alternativas = []
 
+    # Verificar si el dominio ya está en la base de datos y si está ocupado
     for ext in EXTENSIONS:
         dominio = f"{base}.{ext}"
-        try:
-            html = get_html(dominio)
-            info = parse_data(html)
-            alternativas.append(DomainStatus(
-                domain=dominio,
-                registered=info["registered"],
-                expires=info["expires"]
-            ))
-        except:
-            alternativas.append(DomainStatus(
-                domain=dominio,
-                registered=False,
-                expires=None
-            ))
+
+        # Comprobar si el dominio está ocupado en la base de datos (OCUPADO = 1)
+        dominio_db = db.query(Dominio).filter_by(IDDOMINIO=dominio, OCUPADO=True).first()
+
+        if dominio_db:
+            # Si el dominio está ocupado, no agregarlo a las alternativas
+            continue
+        else:
+            try:
+                # Si el dominio no está ocupado, verificamos disponibilidad en línea
+                html = get_html(dominio)
+                info = parse_data(html)
+                alternativas.append(DomainStatus(
+                    domain=dominio,
+                    registered=info["registered"],
+                    expires=info["expires"]
+                ))
+            except:
+                # Si la verificación en línea falla, lo marcamos como no disponible
+                alternativas.append(DomainStatus(
+                    domain=dominio,
+                    registered=False,
+                    expires=None
+                ))
 
     return AlternativesResponse(domain=base, alternativas=alternativas)
+
+
+
 
 @router.post("/agregarDominio")
 def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
@@ -263,3 +276,65 @@ def agregar_dominio_a_carrito(data: AgregarDominioRequest, db: Session = Depends
         "idcarrito": carrito.IDCARRITO,
         "iddominio": data.iddominio
     }
+
+
+@router.put("/TransferenciaDominio")
+def transferencia_dominio(data: TransferenciaDominioRequest, db: Session = Depends(get_db)):
+    # Buscar el dominio
+    dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
+    if not dominio:
+        raise HTTPException(status_code=404, detail="Dominio no encontrado")
+    
+    # Buscar la cuenta de origen con IDORIGEN
+    cuenta_origen = db.query(Cuenta).filter_by(IDCUENTA=data.idcuenta_origen).first()
+    if not cuenta_origen:
+        raise HTTPException(status_code=404, detail="Cuenta de origen no encontrada")
+    
+    # Buscar la cuenta de destino usando el CORREODESTINO
+    cuenta_destino = db.query(Cuenta).filter_by(CORREO=data.correo_destino).first()
+    if not cuenta_destino:
+        raise HTTPException(status_code=404, detail="Cuenta de destino no encontrada")
+
+    # Obtener el IDMETODOPAGOCUENTA de la cuenta destino
+    metodo_pago_destino = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=cuenta_destino.IDCUENTA).first()
+    if not metodo_pago_destino:
+        raise HTTPException(status_code=404, detail="Método de pago para la cuenta de destino no encontrado")
+
+    # Crear un nuevo carrito para la cuenta destino
+    nuevo_carrito = Carrito(
+        IDESTADOCARRITO='3',  # Estado '3' significa TRANSFERIDO
+        IDCUENTA=cuenta_destino.IDCUENTA,  # Cuenta destino
+        IDMETODOPAGOCUENTA=metodo_pago_destino.IDMETODOPAGOCUENTA  # Usamos el mismo IDMETODOPAGOCUENTA de la cuenta destino
+    )
+    db.add(nuevo_carrito)
+    db.commit()
+    db.refresh(nuevo_carrito)
+    
+    # Actualizar la relación CARRITODOMINIO para que apunte al nuevo carrito
+    car_dominio = db.query(CarritoDominio).join(Carrito).filter(
+        CarritoDominio.IDDOMINIO == data.iddominio,
+        Carrito.IDCUENTA == data.idcuenta_origen
+    ).first()
+
+    if not car_dominio:
+        raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada en cuenta de origen")
+
+    # Actualizamos el IDCARRITO en CARRITODOMINIO para que apunte al nuevo carrito
+    car_dominio.IDCARRITO = nuevo_carrito.IDCARRITO
+    db.commit()
+
+    # Marcar el carrito como "TRANSFERIDO" si es necesario
+    if nuevo_carrito.IDESTADOCARRITO != '3':  # Si no está ya transferido
+        nuevo_carrito.IDESTADOCARRITO = '3'
+        db.commit()
+
+    # Generar una respuesta que indique que la transferencia fue exitosa
+    return {
+        "message": f"Dominio {dominio.NOMBREPAGINA} transferido de {cuenta_origen.NOMBRECUENTA} a {cuenta_destino.NOMBRECUENTA}",
+        "iddominio": dominio.IDDOMINIO,
+        "cuenta_origen": cuenta_origen.NOMBRECUENTA,
+        "cuenta_destino": cuenta_destino.NOMBRECUENTA,
+        "nuevo_carrito": nuevo_carrito.IDCARRITO
+    }
+
+

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from api.models import CarritoCreate, CarritoDominioCreate, CarritoUpdate, CarritoDominioDelete
-from api.models_sqlalchemy import Carrito, CarritoDominio
+from api.models_sqlalchemy import Carrito, CarritoDominio, Dominio
 from api.database import SessionLocal
 
 router = APIRouter()
@@ -100,13 +100,26 @@ def obtener_carritos_por_cuenta(idcuenta: str, db: Session = Depends(get_db)):
 
 @router.delete("/EliminarDominioCarrito")
 def eliminar_dominio_carrito(idcuenta: str, iddominio: str, db: Session = Depends(get_db)):
-   
-    car_dominio = db.query(CarritoDominio).join(Carrito).filter(Carrito.IDCUENTA == idcuenta, CarritoDominio.IDDOMINIO == iddominio).first()
+    # Buscar la relación entre el carrito y el dominio
+    car_dominio = db.query(CarritoDominio).join(Carrito).filter(
+        Carrito.IDCUENTA == idcuenta, 
+        CarritoDominio.IDDOMINIO == iddominio
+    ).first()
 
     if not car_dominio:
         raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada")
 
+    # Eliminar la relación dominio-carrito
     db.delete(car_dominio)
     db.commit()
 
+    # Verificar si el dominio tiene otras relaciones en la tabla CarritoDominio
+    dominio_relacionado = db.query(CarritoDominio).filter(CarritoDominio.IDDOMINIO == iddominio).first()
+
+    # Si no hay otras relaciones, eliminar el dominio de la tabla DOMINIO
+    if not dominio_relacionado:
+        dominio = db.query(Dominio).filter_by(IDDOMINIO=iddominio).first()
+        if dominio:
+            db.delete(dominio)
+            db.commit()
     return {"message": f"Dominio {iddominio} eliminado del carrito de la cuenta {idcuenta} exitosamente."}
