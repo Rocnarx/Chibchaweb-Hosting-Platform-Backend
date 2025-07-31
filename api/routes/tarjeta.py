@@ -7,7 +7,6 @@ from cryptography.fernet import Fernet
 import os
 from dotenv import load_dotenv
 
-# Cargar clave desde archivo .env
 load_dotenv()
 FERNET_KEY = os.getenv("FERNET_KEY")
 if not FERNET_KEY:

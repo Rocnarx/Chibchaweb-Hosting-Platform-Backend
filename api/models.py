@@ -98,7 +98,9 @@ class LoginRequest(BaseModel):
 
 class ActualizarOcupadoDominioRequest(BaseModel):
     iddominio: str
-    ocupado: bool
+
+class ActualizarOcupadoDominioRequestList(BaseModel):
+    dominios: List[ActualizarOcupadoDominioRequest]
 
 class MetodoPagoUsuario(BaseModel):
     identificacion: str

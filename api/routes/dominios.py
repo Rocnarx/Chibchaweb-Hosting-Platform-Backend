@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequest, AgregarDominioRequest
+from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest
 from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
@@ -125,57 +125,86 @@ def agregar_dominio(dominio_data: DominioCreate, db: Session = Depends(get_db)):
     return {"message": "Dominio registrado exitosamente", "id": nuevo_dominio.IDDOMINIO}
 
 @router.put("/ActualizarOcupadoDominio")
-def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequest, db: Session = Depends(get_db)):
-    # Buscar el dominio por su ID
-    dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
-    if not dominio:
-        raise HTTPException(status_code=404, detail="Dominio no encontrado")
+def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequestList, db: Session = Depends(get_db)):
+    dominios_pagados = []
+    cuenta = None
+    carrito = None
+    carrito_pagado = False
 
-    # Buscar la relación en CARRITODOMINIO
-    car_dominio = db.query(CarritoDominio).filter_by(IDDOMINIO=data.iddominio).first()
-    if not car_dominio:
-        raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada")
+    for item in data.dominios:
+        dominio = db.query(Dominio).filter_by(IDDOMINIO=item.iddominio).first()
+        if not dominio:
+            continue
 
-    # Buscar el carrito
-    carrito = db.query(Carrito).filter_by(IDCARRITO=car_dominio.IDCARRITO).first()
-    if not carrito:
-        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+        car_dominio = db.query(CarritoDominio).filter_by(IDDOMINIO=item.iddominio).first()
+        if not car_dominio:
+            continue
 
-    # Buscar la cuenta usando IDCUENTA del carrito
-    cuenta = db.query(Cuenta).filter_by(IDCUENTA=carrito.IDCUENTA).first()
-    if not cuenta:
-        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+        carrito = db.query(Carrito).filter_by(IDCARRITO=car_dominio.IDCARRITO).first()
+        if not carrito:
+            continue
 
-    # Actualizar estado de dominio
-    dominio.OCUPADO = data.ocupado
-    db.commit()
-    db.refresh(dominio)
+        if not cuenta:
+            cuenta = db.query(Cuenta).filter_by(IDCUENTA=carrito.IDCUENTA).first()
+            if not cuenta:
+                continue
 
-    mensaje = {"message": "Estado de dominio actualizado", "ocupado": dominio.OCUPADO}
+        if dominio.OCUPADO != True:
+            dominio.OCUPADO = True
+            db.commit()
+            db.refresh(dominio)
 
-    if dominio.OCUPADO:
-        # Crear XML
-        root = Element("SolicitudDominio")
-        SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
-        SubElement(root, "NombrePagina").text = dominio.NOMBREPAGINA
-        SubElement(root, "PrecioDominio").text = str(dominio.PRECIODOMINIO)
+            if dominio.OCUPADO:
+                if carrito.IDESTADOCARRITO != '2':
+                    carrito_pagado = True
+                    dominios_pagados.append(dominio.NOMBREPAGINA)
+    
+    if carrito_pagado and carrito:
+        carrito.IDESTADOCARRITO = '2'
+        db.commit()
 
-        buffer = BytesIO()
-        tree = ElementTree(root)
-        tree.write(buffer, encoding="utf-8", xml_declaration=True)
-        xml_bytes = buffer.getvalue()
+        carrito_existente = db.query(Carrito).filter_by(IDCUENTA=cuenta.IDCUENTA, IDESTADOCARRITO='1').first()
+        if not carrito_existente:
+            nuevo_carrito = Carrito(
+                IDESTADOCARRITO='1',
+                IDCUENTA=cuenta.IDCUENTA,
+                IDMETODOPAGOCUENTA=carrito.IDMETODOPAGOCUENTA
+            )
+            db.add(nuevo_carrito)
+            db.commit()
+            db.refresh(nuevo_carrito)
 
-        # Enviar XML por correo a la dirección de la cuenta
-        enviar_xml_por_correo(f"solicitud_{dominio.NOMBREPAGINA}.xml", xml_bytes, cuenta.CORREO)
-        mensaje["correo"] = "Solicitud enviada por email"
+    root = Element("SolicitudDominios")
+    SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
 
-    return mensaje
+    for dominio in dominios_pagados:
+        precio_dominio = db.query(Dominio.PRECIODOMINIO).filter_by(IDDOMINIO=dominio).first()
+        if precio_dominio:
+            sub_element = SubElement(root, "Dominio")
+            SubElement(sub_element, "NombrePagina").text = dominio
+            SubElement(sub_element, "PrecioDominio").text = str(precio_dominio.PRECIODOMINIO)
+
+    buffer = BytesIO()
+    tree = ElementTree(root)
+    tree.write(buffer, encoding="utf-8", xml_declaration=True)
+    xml_bytes = buffer.getvalue()
+
+    enviar_xml_por_correo("solicitud_dominios.xml", xml_bytes, cuenta.CORREO)
+
+    return {
+        "identificacion": cuenta.IDENTIFICACION,
+        "dominios_pagados": dominios_pagados
+    }
 
 
 
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, Query
-from typing import List
+
+
+
+
+
+
+
 
 @router.get("/carrito/dominios", response_model=List[DominioEnCarrito])
 def obtener_dominios_facturados(idcuenta: str = Query(...), db: Session = Depends(get_db)):
