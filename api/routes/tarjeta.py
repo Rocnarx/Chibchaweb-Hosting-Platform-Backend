@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from api.database import SessionLocal
-from api.models import MetodoPagoCuentaCreate, TarjetaCreate, TarjetaRequest, TarjetaValidarResponse
+from api.models import MetodoPagoCuentaCreate, TarjetaCreate, TarjetaRequest
 from api.models_sqlalchemy import MetodoPagoCuenta, Tarjeta
 from cryptography.fernet import Fernet
+import os
+from dotenv import load_dotenv
 
-key = Fernet.generate_key()  
-cipher = Fernet(key)
+# Cargar clave desde archivo .env
+load_dotenv()
+FERNET_KEY = os.getenv("FERNET_KEY")
+if not FERNET_KEY:
+    raise RuntimeError("Falta la clave FERNET_KEY en el archivo .env")
+
+cipher = Fernet(FERNET_KEY.encode())
 
 router = APIRouter()
 
@@ -20,7 +27,6 @@ def get_db():
 @router.post("/tarjeta")
 def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)):
     try:
-        # Convertir los valores numéricos a cadenas antes de encriptar
         encrypted_numero_tarjeta = cipher.encrypt(str(tarjeta_data.numerotarjeta).encode())
         encrypted_ccv = cipher.encrypt(str(tarjeta_data.ccv).encode())
 
@@ -33,7 +39,7 @@ def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)
 
         db.add(nueva_tarjeta)
         db.commit()
-        db.refresh(nueva_tarjeta)  # Obtener el ID autogenerado
+        db.refresh(nueva_tarjeta)
 
         return {
             "mensaje": "Tarjeta registrada correctamente",
@@ -42,14 +48,12 @@ def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al registrar la tarjeta: {e}")
 
-
-
 @router.post("/metodopago")
 def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_db)):
     metodo = MetodoPagoCuenta(
         IDTARJETA=data.idtarjeta,
         IDCUENTA=data.idcuenta,
-        IDTIPOMETODOPAGO=data.idtipometodopago,
+        IDTIPOMETODOPAGO=data.idtipometodopagocuenta,
         ACTIVOMETODOPAGOCUENTA=data.activometodopagocuenta
     )
 
@@ -57,33 +61,25 @@ def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_
     db.commit()
     return {"mensaje": "Método de pago registrado correctamente"}
 
-
-
-
 @router.post("/validarTarjeta")
-def validar_tarjeta(
-    tarjeta_request: TarjetaRequest, db: Session = Depends(get_db)
-):
+def validar_tarjeta(tarjeta_request: TarjetaRequest, db: Session = Depends(get_db)):
     try:
-        encrypted_numerotarjeta = cipher.encrypt(tarjeta_request.numero_tarjeta.encode()).decode()
-        print("Número de tarjeta cifrado:", encrypted_numerotarjeta)
+        tarjetas = db.query(Tarjeta).all()
 
-        tarjeta = db.query(Tarjeta).filter(Tarjeta.NUMEROTARJETA == encrypted_numerotarjeta).first()
+        for tarjeta in tarjetas:
+            try:
+                decrypted_num = cipher.decrypt(tarjeta.NUMEROTARJETA.encode()).decode()
+            except:
+                continue
 
-        if not tarjeta:
-            raise HTTPException(status_code=404, detail="Tarjeta no encontrada")
+            if decrypted_num == tarjeta_request.numero_tarjeta:
+                decrypted_ccv = cipher.decrypt(tarjeta.CCV.encode()).decode()
+                if decrypted_ccv == tarjeta_request.ccv:
+                    return {"valid": True}
+                else:
+                    raise HTTPException(status_code=400, detail="CCV incorrecto")
 
-        decrypted_ccv = cipher.decrypt(tarjeta.CCV.encode()).decode()
-
-        # Mostrar el CCV desencriptado para comparación
-        print("CCV almacenado desencriptado:", decrypted_ccv)
-        print("CCV proporcionado:", tarjeta_request.ccv)
-
-        if decrypted_ccv != tarjeta_request.ccv:
-            raise HTTPException(status_code=400, detail="CCV incorrecto")
-
-        return {"valid": True}
+        raise HTTPException(status_code=404, detail="Tarjeta no encontrada")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al validar la tarjeta: {str(e)}")
-
