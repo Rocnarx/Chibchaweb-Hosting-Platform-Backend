@@ -47,7 +47,7 @@ class Plan(Base):
 
     IDPLAN = Column(String(15), primary_key=True)
     NOMBREPLAN = Column(String(15), nullable=False)
-
+    CUENTAS = relationship("Cuenta", back_populates="PLAN_REL")
 
 class Pais(Base):
     __tablename__ = "PAIS"
