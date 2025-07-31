@@ -17,12 +17,19 @@ def get_db():
     finally:
         db.close()
 
+from cryptography.fernet import Fernet
+from fastapi import HTTPException
+
+# Key used for encryption and decryption (same key used during registration)
+key = Fernet.generate_key()  
+cipher = Fernet(key)
+
 @router.post("/tarjeta")
 def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)):
     try:
-        # Encrypt sensitive data
-        encrypted_numero_tarjeta = cipher.encrypt(tarjeta_data.numerotarjeta.encode())
-        encrypted_ccv = cipher.encrypt(tarjeta_data.ccv.encode())
+        # Convertir los valores numéricos a cadenas antes de encriptar
+        encrypted_numero_tarjeta = cipher.encrypt(str(tarjeta_data.numerotarjeta).encode())
+        encrypted_ccv = cipher.encrypt(str(tarjeta_data.ccv).encode())
 
         nueva_tarjeta = Tarjeta(
             IDTIPOTARJETA=tarjeta_data.idtipotarjeta,
@@ -41,6 +48,7 @@ def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al registrar la tarjeta: {e}")
+
 
 
 @router.post("/metodopago")
