@@ -13,7 +13,7 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/CrearPlan")
+@router.post("/CrearPaquete")
 def crear_plan(data: CrearPlanRequest, db: Session = Depends(get_db)):
     try:
         # Paso 1: Crear InfoPaqueteHosting

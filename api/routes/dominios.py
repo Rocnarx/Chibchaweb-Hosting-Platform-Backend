@@ -190,7 +190,7 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequestList, db: Se
         factura = Factura(
             IDCARRITO=carrito.IDCARRITO,  # Asociar la factura con el carrito
             PAGOFACTURA=date.today(),  # Usamos `date.today()` para la fecha actual
-            VIGFACTURA=date.today() + timedelta(days=30)  # 30 días después de hoy
+            VIGFACTURA=date.today() + timedelta(days=365)
         )
         db.add(factura)
         db.commit()
@@ -378,3 +378,33 @@ def dominios_adquiridos(idcuenta: str, db: Session = Depends(get_db)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener los dominios adquiridos: {str(e)}")
+
+@router.get("/dominios/vigencia")
+def obtener_vigencia_dominios(idcuenta: str = Query(...), db: Session = Depends(get_db)):
+    resultados = (
+        db.query(
+            Dominio.NOMBREPAGINA,
+            Factura.VIGFACTURA
+        )
+        .join(CarritoDominio, CarritoDominio.IDDOMINIO == Dominio.IDDOMINIO)
+        .join(Carrito, Carrito.IDCARRITO == CarritoDominio.IDCARRITO)
+        .join(Factura, Factura.IDCARRITO == Carrito.IDCARRITO)
+        .filter(Carrito.IDCUENTA == idcuenta, Dominio.OCUPADO == True)
+        .all()
+    )
+
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron dominios con vigencia para esta cuenta")
+
+    hoy = date.today()
+    dominios_con_vigencia = []
+
+    for nombre, vigencia in resultados:
+        dias_restantes = (vigencia - hoy).days
+
+        dominios_con_vigencia.append({
+            "nombre_dominio": nombre,
+            "dias_restantes": dias_restantes
+        })
+
+    return dominios_con_vigencia
