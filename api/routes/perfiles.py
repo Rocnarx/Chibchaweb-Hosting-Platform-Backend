@@ -16,33 +16,6 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/registrar")
-def registrar_cuenta(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
-    now_str = datetime.now().strftime("%Y%m%d%H%M%S")
-    idcuenta = f"{random.randint(1, 9)}{now_str}"
-
-    hashed_password = bcrypt.hash(cuenta_data.password)
-
-    cuenta = Cuenta(
-        IDCUENTA=idcuenta,
-        IDTIPOCUENTA=cuenta_data.idtipocuenta,
-        IDPAIS=cuenta_data.idpais,
-        IDPLAN=cuenta_data.idplan,
-        PASSWORD=hashed_password,
-        IDENTIFICACION=cuenta_data.identificacion,
-        NOMBRECUENTA=cuenta_data.nombrecuenta,
-        CORREO=cuenta_data.correo,
-        TELEFONO=cuenta_data.telefono,
-        FECHAREGISTRO=datetime.now().date(),
-        DIRECCION=cuenta_data.direccion
-    )
-
-    db.add(cuenta)
-    db.commit()
-    db.refresh(cuenta)
-
-    return {"message": "Cuenta registrada exitosamente", "idcuenta": cuenta.IDCUENTA}
-
 @router.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     cuenta = (

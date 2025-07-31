@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session, joinedload
 from api.models import CarritoCreate, CarritoDominioCreate, CarritoUpdate, CarritoDominioDelete
 from api.models_sqlalchemy import Carrito, CarritoDominio
 from api.database import SessionLocal
-import uuid
 
 router = APIRouter()
 
