@@ -4,7 +4,7 @@ from pathlib import Path
 
 router_precios = APIRouter()
 
-RUTA_JSON = Path(__file__).resolve().parent.parent.parent / "precios_extensiones.json"
+RUTA_JSON = Path(__file__).resolve().parent.parent.parent / "precios.json"
 
 @router_precios.get("/precios-extensiones")
 def obtener_precios():
