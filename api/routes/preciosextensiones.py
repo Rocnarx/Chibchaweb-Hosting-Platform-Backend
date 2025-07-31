@@ -17,10 +17,8 @@ def obtener_precios():
 
 @router_precios.put("/precios-extensiones")
 def actualizar_precios(nuevos_precios: dict):
-    if not isinstance(nuevos_precios, dict):
-        raise HTTPException(status_code=400, detail="El cuerpo debe ser un JSON con clave-valor")
-
     with open(RUTA_JSON, "w", encoding="utf-8") as archivo:
         json.dump(nuevos_precios, archivo, indent=2)
 
-    return {"mensaje": "Precios actualizados correctamente"}
+    return {"mensaje": "Precios guardados correctamente"}
+
