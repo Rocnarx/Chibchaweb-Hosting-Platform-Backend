@@ -1,0 +1,18 @@
+{
+    "en": {
+        "welcome_message": "Welcome to our platform!",
+        "goodbye_message": "Goodbye and see you soon!",
+        "error_message": "Something went wrong, please try again later."
+    },
+    "es": {
+        "welcome_message": "\u00c2\u00a1Bienvenido a nuestra plataforma!",
+        "goodbye_message": "\u00c2\u00a1Adi\u00c3\u00b3s y hasta pronto!",
+        "error_message": "Algo sali\u00c3\u00b3 mal, por favor intente nuevamente m\u00c3\u00a1s tarde."
+    },
+    "fr": {
+        "error_message": "TEST2",
+        "ASD": "TESTXEX",
+        "ASX": "TESTXEX",
+        "ASXCS": "ASD"
+    }
+}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
 from decimal import Decimal
@@ -126,3 +126,9 @@ class TransferenciaDominioRequest(BaseModel):
     iddominio: str 
     idcuenta_origen: str  
     correo_destino: str 
+
+class DominioAdquiridoRequest(BaseModel):
+    idcuenta: str
+
+class ObtenerFacturasRequest(BaseModel):
+    idcuenta: str  # ID de la cuenta

@@ -1,6 +1,7 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, Float, Boolean, Integer, ForeignKey, Numeric, Date
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -118,7 +119,8 @@ class Carrito(Base):
     IDMETODOPAGOCUENTA = Column("IDMETODOPAGOCUENTA", String(3), ForeignKey("METODOPAGOCUENTA.IDMETODOPAGOCUENTA"), nullable=False)
 
     ESTADOCARRITO_REL = relationship("EstadoCarrito", backref="carritos")
-
+    facturas = relationship("Factura", back_populates="carrito", cascade="all, delete-orphan")
+    
 class CarritoDominio(Base):
     __tablename__ = "CARRITODOMINIO"
 
@@ -129,7 +131,11 @@ class CarritoDominio(Base):
 class Factura(Base):
     __tablename__ = "FACTURA"
 
-    IDFACTURA = Column("IDFACTURA", Integer, primary_key=True, autoincrement=True)
-    IDCARRITO = Column("IDCARRITO", Integer, ForeignKey("CARRITO.IDCARRITO"), nullable=False)
-    PAGOFACTURA = Column("PAGOFACTURA", Date, nullable=False)
-    VIGFACTURA = Column("VIGFACTURA", Date, nullable=False)
+    IDFACTURA = Column(Integer, primary_key=True, autoincrement=True)
+    IDCARRITO = Column(Integer, ForeignKey("CARRITO.IDCARRITO"), nullable=False)
+    PAGOFACTURA = Column(DateTime, default=datetime.utcnow)
+    VIGFACTURA = Column(DateTime, nullable=False)
+
+    # Relación con Carrito
+    carrito = relationship("Carrito", back_populates="facturas")
+

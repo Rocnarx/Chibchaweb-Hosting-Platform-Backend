@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from api.models import CarritoCreate, CarritoDominioCreate, CarritoUpdate, CarritoDominioDelete
-from api.models_sqlalchemy import Carrito, CarritoDominio, Dominio
-from api.database import SessionLocal
+from api.DTO.models import CarritoCreate, CarritoDominioCreate, CarritoUpdate, CarritoDominioDelete
+from api.DTO.models_sqlalchemy import Carrito, CarritoDominio, Dominio
+from api.DAO.database import SessionLocal
 
 router = APIRouter()
 

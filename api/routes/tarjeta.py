@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from api.database import SessionLocal
-from api.models import MetodoPagoCuentaCreate, TarjetaCreate, TarjetaRequest
-from api.models_sqlalchemy import MetodoPagoCuenta, Tarjeta
+from api.DAO.database import SessionLocal
+from api.DTO.models import MetodoPagoCuentaCreate, TarjetaCreate, TarjetaRequest
+from api.DTO.models_sqlalchemy import MetodoPagoCuenta, Tarjeta
 from cryptography.fernet import Fernet
 import os
 from dotenv import load_dotenv

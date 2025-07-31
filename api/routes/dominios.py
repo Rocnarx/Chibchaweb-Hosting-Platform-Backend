@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest,TransferenciaDominioRequest
-from api.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito
+from api.DTO.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest,TransferenciaDominioRequest, DominioAdquiridoRequest
+from api.DTO.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito, Factura
 from sqlalchemy.orm import Session
-from ..database import SessionLocal
+from ..DAO.database import SessionLocal
 import requests
 from typing import List
 from bs4 import BeautifulSoup
@@ -12,23 +12,13 @@ from email.message import EmailMessage
 import os
 from io import BytesIO
 import uuid
-
+from datetime import datetime, timedelta, date
 router = APIRouter()
 
 
 HEADERS = { "User-Agent": "Mozilla/5.0" }
 BASE_URL = "https://who.is/whois/"
-
-# Cargar extensiones desde precios.json
-try:
-    RUTA_JSON = Path(__file__).resolve().parent.parent / "precios.json"
-    with open(RUTA_JSON, "r", encoding="utf-8") as archivo:
-        data = json.load(archivo)
-    EXTENSIONS = list(data.keys())
-except Exception as e:
-    print("Error cargando extensiones desde precios.json:", e)
-    EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]  # fallback mínimo
-
+EXTENSIONS = ["com", "net", "org", "co", "io", "app", "info", "dev", "online", "store"]
 def enviar_xml_por_correo(nombre_archivo: str, contenido_bytes: bytes, destinatario: str):
     remitente = os.getenv("EMAIL_REMITENTE")
     password = os.getenv("EMAIL_CONTRASENA")
@@ -196,27 +186,41 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequestList, db: Se
             db.commit()
             db.refresh(nuevo_carrito)
 
-    root = Element("SolicitudDominios")
-    SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
+        # Crear la factura
+        factura = Factura(
+            IDCARRITO=carrito.IDCARRITO,  # Asociar la factura con el carrito
+            PAGOFACTURA=date.today(),  # Usamos `date.today()` para la fecha actual
+            VIGFACTURA=date.today() + timedelta(days=30)  # 30 días después de hoy
+        )
+        db.add(factura)
+        db.commit()
+        db.refresh(factura)  # Para obtener el ID de la factura
 
-    for dominio in dominios_pagados:
-        precio_dominio = db.query(Dominio.PRECIODOMINIO).filter_by(IDDOMINIO=dominio).first()
-        if precio_dominio:
-            sub_element = SubElement(root, "Dominio")
-            SubElement(sub_element, "NombrePagina").text = dominio
-            SubElement(sub_element, "PrecioDominio").text = str(precio_dominio.PRECIODOMINIO)
+        # Crear XML y enviarlo por correo
+        root = Element("SolicitudDominios")
+        SubElement(root, "Identificacion").text = cuenta.IDENTIFICACION
 
-    buffer = BytesIO()
-    tree = ElementTree(root)
-    tree.write(buffer, encoding="utf-8", xml_declaration=True)
-    xml_bytes = buffer.getvalue()
+        for dominio in dominios_pagados:
+            precio_dominio = db.query(Dominio.PRECIODOMINIO).filter_by(IDDOMINIO=dominio).first()
+            if precio_dominio:
+                sub_element = SubElement(root, "Dominio")
+                SubElement(sub_element, "NombrePagina").text = dominio
+                SubElement(sub_element, "PrecioDominio").text = str(precio_dominio.PRECIODOMINIO)
 
-    enviar_xml_por_correo("solicitud_dominios.xml", xml_bytes, cuenta.CORREO)
+        buffer = BytesIO()
+        tree = ElementTree(root)
+        tree.write(buffer, encoding="utf-8", xml_declaration=True)
+        xml_bytes = buffer.getvalue()
 
-    return {
-        "identificacion": cuenta.IDENTIFICACION,
-        "dominios_pagados": dominios_pagados
-    }
+        enviar_xml_por_correo("solicitud_dominios.xml", xml_bytes, cuenta.CORREO)
+
+        return {
+            "identificacion": cuenta.IDENTIFICACION,
+            "dominios_pagados": dominios_pagados,
+            "factura_id": factura.IDFACTURA,  # Devuelvo el ID de la factura generada
+            "fecha_pago": factura.PAGOFACTURA,
+            "fecha_vencimiento": factura.VIGFACTURA
+        }
 
 
 
@@ -347,3 +351,30 @@ def transferencia_dominio(data: TransferenciaDominioRequest, db: Session = Depen
     }
 
 
+@router.get("/DominiosAdquiridos")
+def dominios_adquiridos(idcuenta: str, db: Session = Depends(get_db)):
+    try:
+        # Consultar los dominios con OCUPADO = 1 y el idcuenta proporcionado
+        dominios = db.query(Dominio).join(
+            CarritoDominio, CarritoDominio.IDDOMINIO == Dominio.IDDOMINIO
+        ).join(
+            Carrito, Carrito.IDCARRITO == CarritoDominio.IDCARRITO
+        ).filter(
+            Dominio.OCUPADO == True,  # Filtrar solo dominios ocupados
+            Carrito.IDCUENTA == idcuenta  # Filtrar por el IDCUENTA proporcionado
+        ).all()
+
+        if not dominios:
+            raise HTTPException(status_code=404, detail="No se encontraron dominios adquiridos para esta cuenta")
+
+        # Preparar la lista de dominios
+        dominios_lista = [dominio.IDDOMINIO for dominio in dominios]
+
+        # Incluir un encabezado "Páginas adquiridas:"
+        return {
+            "mensaje": "Páginas adquiridas:",
+            "dominios_adquiridos": dominios_lista
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener los dominios adquiridos: {str(e)}")

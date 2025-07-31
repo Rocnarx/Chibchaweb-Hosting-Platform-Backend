@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime
 import random
 from sqlalchemy.orm import Session
-from api.database import SessionLocal
-from api.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
-from api.models import CuentaCreate, LoginRequest
+from api.DAO.database import SessionLocal
+from api.DTO.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
+from api.DTO.models import CuentaCreate, LoginRequest
 from passlib.hash import bcrypt
 
 router = APIRouter()
