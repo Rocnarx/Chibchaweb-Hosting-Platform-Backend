@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime, DECIMAL
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -47,10 +47,6 @@ class Plan(Base):
 
     IDPLAN = Column(String(15), primary_key=True)
     NOMBREPLAN = Column(String(15), nullable=False)
-    COMISION = Column(Numeric(2), nullable=False)
-
-    CUENTAS = relationship("Cuenta", back_populates="PLAN_REL")
-
 
 
 class Pais(Base):
@@ -139,3 +135,42 @@ class Factura(Base):
     # Relación con Carrito
     carrito = relationship("Carrito", back_populates="facturas")
 
+class PaqueteHosting(Base):
+    __tablename__ = "PAQUETEHOSING"
+
+    IDPAQUETEHOSING = Column(String(15), primary_key=True)
+    CANTIDADSITIOS = Column(Integer)
+    NOMBREPAQUETEHOSING = Column(String(50))
+    BD = Column(Integer)
+    GBENSSD = Column(Integer)
+    CORREOS = Column(Integer)
+    CERTIFICADOSSSLHTTPS = Column(Integer)
+
+    precios = relationship("PeriodicidadPrecioPaquete", back_populates="paquete")
+
+
+class PeriodicidadPago(Base):
+    __tablename__ = "PERIODICIDADPAGO"
+
+    IDPERIODICIDADPAGO = Column(String(10), primary_key=True)
+    NOMBREPERIODICIDAD = Column(String(30))
+
+
+class PeriodicidadPrecioPaquete(Base):
+    __tablename__ = "PERIODICIDADPRECIOPAQUETE"
+
+    IDPAQUETEHOSING = Column(String(15), ForeignKey("PAQUETEHOSING.IDPAQUETEHOSING"), primary_key=True)
+    IDPERIODICIDADPAGO = Column(String(10), ForeignKey("PERIODICIDADPAGO.IDPERIODICIDADPAGO"), primary_key=True)
+    IDPERIODICIDADPRECIOPAQUETE = Column(String(20), primary_key=True)
+    PRECIO = Column(DECIMAL(10, 2))
+
+    paquete = relationship("PaqueteHosting", back_populates="precios")
+    periodicidad = relationship("PeriodicidadPago")
+
+
+class CarritoPaquete(Base):
+    __tablename__ = "CARRITOPAQUETE"
+
+    IDCARRITO = Column(String(15), primary_key=True)
+    IDPAQUETEHOSING = Column(String(15), ForeignKey("PAQUETEHOSING.IDPAQUETEHOSING"), primary_key=True)
+    IDCARRITOPAQUETE = Column(String(15), primary_key=True)

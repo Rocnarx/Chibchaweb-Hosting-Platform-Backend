@@ -131,4 +131,30 @@ class DominioAdquiridoRequest(BaseModel):
     idcuenta: str
 
 class ObtenerFacturasRequest(BaseModel):
-    idcuenta: str  # ID de la cuenta
+    idcuenta: str 
+
+class InfoPlanCreate(BaseModel):
+    idinfoplan: str
+    nombreplan: str
+    precio: Decimal
+    numsitiosweb: int
+    numbd: int
+    almacenamiento: str
+    correos: int
+    numcertificadosssl: int
+    duracion: int
+
+class PeriodicidadPrecioInput(BaseModel):
+    idperiodicidadpago: str
+    precio: float
+
+
+class PaqueteHostingInput(BaseModel):
+    idpaquetehosting: str
+    nombrepaquetehosting: str
+    cantidadsitios: int
+    bd: int
+    gbenssd: int
+    correos: int
+    certificadossslhttps: int
+    precios: List[PeriodicidadPrecioInput]
