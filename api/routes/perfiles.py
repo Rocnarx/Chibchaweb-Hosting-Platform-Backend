@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+from typing import List
 from datetime import datetime
 import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
 from api.DTO.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
-from api.DTO.models import CuentaCreate, LoginRequest
+from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo
 from passlib.hash import bcrypt
+from decimal import Decimal
 
 router = APIRouter()
 
@@ -108,3 +110,17 @@ def registrar_cuenta2(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()  # Deshacemos cualquier cambio si hay otro error
         raise HTTPException(status_code=500, detail=f"Error inesperado: {str(e)}")
+    
+@router.get("/cuentas-por-tipo", response_model=List[CuentaNombreCorreo])
+def obtener_cuentas_por_tipo(idtipo: int, db: Session = Depends(get_db)):
+    id_decimal = Decimal(idtipo)  # 💡 Conversión clave
+    cuentas = db.query(Cuenta).filter(Cuenta.IDTIPOCUENTA == idtipo).all()
+
+    if not cuentas:
+        raise HTTPException(status_code=404, detail="No se encontraron cuentas con ese tipo")
+
+    # Solo extraemos los campos requeridos
+    resultado = [{"nombrecuenta": c.NOMBRECUENTA, "correo": c.CORREO} for c in cuentas]
+
+    return resultado
+

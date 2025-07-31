@@ -167,3 +167,7 @@ class CrearPlanRequest(BaseModel):
     certificadosslhttps: int
     nombreperiodicidad: Literal["MENSUAL", "SEMESTRAL", "ANUAL"]  # 1: mensual, 6: semestral, 12: anual
     preciopaquete: int
+
+class CuentaNombreCorreo(BaseModel):
+    nombrecuenta: str
+    correo: str

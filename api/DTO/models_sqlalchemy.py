@@ -116,7 +116,6 @@ class Carrito(Base):
 
     ESTADOCARRITO_REL = relationship("EstadoCarrito", backref="carritos")
     facturas = relationship("Factura", back_populates="carrito", cascade="all, delete-orphan")
-    paquetes = relationship("CarritoPaquete", back_populates="carrito")
 
 class CarritoDominio(Base):
     __tablename__ = "CARRITODOMINIO"
