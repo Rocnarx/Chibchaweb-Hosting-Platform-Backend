@@ -16,7 +16,7 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/logins")
+@router.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     cuenta = (
         db.query(Cuenta)
