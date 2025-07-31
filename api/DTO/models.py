@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Literal
 from datetime import date
 from decimal import Decimal
@@ -171,3 +171,18 @@ class CrearPlanRequest(BaseModel):
 class CuentaNombreCorreo(BaseModel):
     nombrecuenta: str
     correo: str
+
+class CorreoRequest(BaseModel):
+    correo: EmailStr
+
+class CuentaResponse(BaseModel):
+    IDCUENTA: str
+    IDTIPOCUENTA: int
+    IDPAIS: int
+    IDPLAN: Optional[str]
+    IDENTIFICACION: str
+    NOMBRECUENTA: str
+    CORREO: EmailStr
+    TELEFONO: int
+    FECHAREGISTRO: date
+    DIRECCION: Optional[str]

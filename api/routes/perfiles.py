@@ -5,7 +5,7 @@ import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
 from api.DTO.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
-from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo
+from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse
 from passlib.hash import bcrypt
 from decimal import Decimal
 
@@ -113,7 +113,6 @@ def registrar_cuenta2(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
     
 @router.get("/cuentas-por-tipo", response_model=List[CuentaNombreCorreo])
 def obtener_cuentas_por_tipo(idtipo: int, db: Session = Depends(get_db)):
-    id_decimal = Decimal(idtipo)  # 💡 Conversión clave
     cuentas = db.query(Cuenta).filter(Cuenta.IDTIPOCUENTA == idtipo).all()
 
     if not cuentas:
@@ -124,3 +123,11 @@ def obtener_cuentas_por_tipo(idtipo: int, db: Session = Depends(get_db)):
 
     return resultado
 
+@router.post("/cuenta_por_correo", response_model=CuentaResponse)
+def obtener_cuenta_por_correo(data: CorreoRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.CORREO == data.correo).first()
+    
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="No se encontró cuenta con ese correo.")
+    
+    return cuenta
