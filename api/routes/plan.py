@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.DTO.models import InfoPlanCreate
-from api.DTO.models_sqlalchemy import
+from api.DTO.models import CrearPlanRequest
+from api.DTO.models_sqlalchemy import InfoPaqueteHosting, Periodicidad, PaqueteHosting
 
 router = APIRouter()
 
@@ -13,24 +13,45 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/crear-infoplan")
-def crear_infoplan(data: InfoPlanCreate, db: Session = Depends(get_db)):
-    if db.query(InfoPlan).filter_by(IDINFOPLAN=data.idinfoplan).first():
-        raise HTTPException(status_code=400, detail="IDINFOPLAN ya existe")
+@router.post("/CrearPlan")
+def crear_plan(data: CrearPlanRequest, db: Session = Depends(get_db)):
+    try:
+        # Paso 1: Crear InfoPaqueteHosting
+        nuevo_info = InfoPaqueteHosting(
+            CANTIDADSITIOS=data.cantidadsitios,
+            NOMBREPAQUETEHOSTING=data.nombrepaquetehosting,
+            BD=data.bd,
+            GBENSSD=data.gbenssd,
+            CORREOS=data.correos,
+            CERTIFICADOSSSLHTTPS=data.certificadosslhttps
+        )
+        db.add(nuevo_info)
+        db.commit()
+        db.refresh(nuevo_info)
 
-    nuevo_infoplan = InfoPlan(
-        IDINFOPLAN=data.idinfoplan,
-        NOMBREPLAN=data.nombreplan,
-        PRECIO=data.precio,
-        NUMSITIOSWEB=data.numsitiosweb,
-        NUMBD=data.numbd,
-        ALMACENAMIENTO=data.almacenamiento,
-        CORREOS=data.correos,
-        NUMCERTIFICADOSSSL=data.numcertificadosssl,
-        DURACION=data.duracion
-    )
+        # Paso 2: Buscar o crear la periodicidad (por duración)
+        periodicidad = db.query(Periodicidad).filter_by(NOMBREPERIODICIDAD=data.nombreperiodicidad).first()
+        if not periodicidad:
+            periodicidad = Periodicidad(NOMBREPERIODICIDAD=data.nombreperiodicidad)
+            db.add(periodicidad)
+            db.commit()
+            db.refresh(periodicidad)
 
-    db.add(nuevo_infoplan)
-    db.commit()
+        # Paso 3: Crear el PaqueteHosting
+        nuevo_paquete = PaqueteHosting(
+            IDINFOPAQUETEHOSTING=nuevo_info.IDINFOPAQUETEHOSTING,
+            IDPERIODICIDAD=periodicidad.IDPERIODICIDAD,
+            PRECIOPAQUETE=data.preciopaquete
+        )
+        db.add(nuevo_paquete)
+        db.commit()
+        db.refresh(nuevo_paquete)
 
-    return {"message": "InfoPlan creado exitosamente", "idinfoplan": nuevo_infoplan.IDINFOPLAN}
+        return {
+            "message": "Plan creado exitosamente",
+            "idpaquete": nuevo_paquete.IDPAQUETEHOSTING
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

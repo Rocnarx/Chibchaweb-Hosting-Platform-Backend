@@ -1,8 +1,7 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import date
 from decimal import Decimal
-
 class DomainRequest(BaseModel):
     domain: str  # sin extensión
 
@@ -158,3 +157,13 @@ class PaqueteHostingInput(BaseModel):
     correos: int
     certificadossslhttps: int
     precios: List[PeriodicidadPrecioInput]
+
+class CrearPlanRequest(BaseModel):
+    cantidadsitios: int
+    nombrepaquetehosting: str
+    bd: int
+    gbenssd: int
+    correos: int
+    certificadosslhttps: int
+    nombreperiodicidad: Literal["MENSUAL", "SEMESTRAL", "ANUAL"]  # 1: mensual, 6: semestral, 12: anual
+    preciopaquete: int

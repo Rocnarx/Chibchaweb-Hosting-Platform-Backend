@@ -116,7 +116,8 @@ class Carrito(Base):
 
     ESTADOCARRITO_REL = relationship("EstadoCarrito", backref="carritos")
     facturas = relationship("Factura", back_populates="carrito", cascade="all, delete-orphan")
-    
+    paquetes = relationship("CarritoPaquete", back_populates="carrito")
+
 class CarritoDominio(Base):
     __tablename__ = "CARRITODOMINIO"
 
@@ -135,42 +136,38 @@ class Factura(Base):
     # Relación con Carrito
     carrito = relationship("Carrito", back_populates="facturas")
 
-class PaqueteHosting(Base):
-    __tablename__ = "PAQUETEHOSING"
-
-    IDPAQUETEHOSING = Column(String(15), primary_key=True)
-    CANTIDADSITIOS = Column(Integer)
-    NOMBREPAQUETEHOSING = Column(String(50))
-    BD = Column(Integer)
-    GBENSSD = Column(Integer)
-    CORREOS = Column(Integer)
-    CERTIFICADOSSSLHTTPS = Column(Integer)
-
-    precios = relationship("PeriodicidadPrecioPaquete", back_populates="paquete")
-
-
-class PeriodicidadPago(Base):
-    __tablename__ = "PERIODICIDADPAGO"
-
-    IDPERIODICIDADPAGO = Column(String(10), primary_key=True)
-    NOMBREPERIODICIDAD = Column(String(30))
-
-
-class PeriodicidadPrecioPaquete(Base):
-    __tablename__ = "PERIODICIDADPRECIOPAQUETE"
-
-    IDPAQUETEHOSING = Column(String(15), ForeignKey("PAQUETEHOSING.IDPAQUETEHOSING"), primary_key=True)
-    IDPERIODICIDADPAGO = Column(String(10), ForeignKey("PERIODICIDADPAGO.IDPERIODICIDADPAGO"), primary_key=True)
-    IDPERIODICIDADPRECIOPAQUETE = Column(String(20), primary_key=True)
-    PRECIO = Column(DECIMAL(10, 2))
-
-    paquete = relationship("PaqueteHosting", back_populates="precios")
-    periodicidad = relationship("PeriodicidadPago")
-
-
 class CarritoPaquete(Base):
     __tablename__ = "CARRITOPAQUETE"
 
-    IDCARRITO = Column(String(15), primary_key=True)
-    IDPAQUETEHOSING = Column(String(15), ForeignKey("PAQUETEHOSING.IDPAQUETEHOSING"), primary_key=True)
-    IDCARRITOPAQUETE = Column(String(15), primary_key=True)
+    IDCARRITOPAQUETE = Column(Integer, primary_key=True, autoincrement=True)
+    IDCARRITO = Column(Integer, ForeignKey("CARRITO.IDCARRITO"), nullable=False)
+    IDPAQUETEHOSTING = Column(Integer, ForeignKey("PAQUETEHOSTING.IDPAQUETEHOSTING"), nullable=False)
+
+    carrito = relationship("Carrito", backref="carrito_paquetes")
+    paquete = relationship("PaqueteHosting", backref="paquetes_en_carritos")
+
+class InfoPaqueteHosting(Base):
+    __tablename__ = "INFOPAQUETEHOSTING"
+    IDINFOPAQUETEHOSTING = Column(Integer, primary_key=True, autoincrement=True)
+    CANTIDADSITIOS = Column(DECIMAL(4, 0))
+    NOMBREPAQUETEHOSTING = Column(String(20))
+    BD = Column(DECIMAL(4, 0))
+    GBENSSD = Column(DECIMAL(4, 0))
+    CORREOS = Column(DECIMAL(3, 0))
+    CERTIFICADOSSSLHTTPS = Column(DECIMAL(3, 0))
+    paquetes = relationship("PaqueteHosting", back_populates="info")
+
+class Periodicidad(Base):
+    __tablename__ = "PERIODICIDAD"
+    IDPERIODICIDAD = Column(Integer, primary_key=True, autoincrement=True)
+    NOMBREPERIODICIDAD = Column(Integer)
+    paquetes = relationship("PaqueteHosting", back_populates="periodo")
+
+class PaqueteHosting(Base):
+    __tablename__ = "PAQUETEHOSTING"
+    IDPAQUETEHOSTING = Column(Integer, primary_key=True, autoincrement=True)
+    IDINFOPAQUETEHOSTING = Column(Integer, ForeignKey("INFOPAQUETEHOSTING.IDINFOPAQUETEHOSTING"))
+    IDPERIODICIDAD = Column(Integer, ForeignKey("PERIODICIDAD.IDPERIODICIDAD"))
+    PRECIOPAQUETE = Column(DECIMAL(10, 0))
+    info = relationship("InfoPaqueteHosting", back_populates="paquetes")
+    periodo = relationship("Periodicidad", back_populates="paquetes")
