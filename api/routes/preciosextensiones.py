@@ -17,8 +17,17 @@ def obtener_precios():
 
 @router_precios.put("/precios-extensiones")
 def actualizar_precios(nuevos_precios: dict):
+    if not isinstance(nuevos_precios, dict):
+        raise HTTPException(status_code=400, detail="Formato inválido: debe ser JSON tipo clave-valor.")
+
+    # Verifica que todos los valores sean enteros válidos
+    for key, value in nuevos_precios.items():
+        if not isinstance(value, int):
+            raise HTTPException(status_code=400, detail=f"Precio inválido para {key}: debe ser número entero.")
+
     with open(RUTA_JSON, "w", encoding="utf-8") as archivo:
         json.dump(nuevos_precios, archivo, indent=2)
 
-    return {"mensaje": "Precios guardados correctamente"}
+    return {"mensaje": "Precios actualizados correctamente"}
+
 
