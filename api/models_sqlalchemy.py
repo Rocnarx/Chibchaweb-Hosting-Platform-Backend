@@ -67,9 +67,10 @@ class Tarjeta(Base):
 
     IDTARJETA = Column("IDTARJETA", Integer, primary_key=True, autoincrement=True)
     IDTIPOTARJETA = Column("IDTIPOTARJETA", Numeric(2), nullable=False)
-    NUMEROTARJETA = Column("NUMEROTARJETA", Numeric(15), nullable=False)
-    CCV = Column("CCV", Numeric(3), nullable=False)
+    NUMEROTARJETA = Column("NUMEROTARJETA", String(255), nullable=False)
+    CCV = Column("CCV", String(255), nullable=False) 
     FECHAVTO = Column("FECHAVTO", Date, nullable=False)
+
 
 
 class MetodoPagoCuenta(Base):

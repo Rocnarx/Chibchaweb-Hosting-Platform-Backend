@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from api.database import SessionLocal
-from api.models import MetodoPagoCuentaCreate, TarjetaCreate
+from api.models import MetodoPagoCuentaCreate, TarjetaCreate, TarjetaRequest, TarjetaValidarResponse
 from api.models_sqlalchemy import MetodoPagoCuenta, Tarjeta
 from cryptography.fernet import Fernet
 
@@ -16,13 +16,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-from cryptography.fernet import Fernet
-from fastapi import HTTPException
-
-# Key used for encryption and decryption (same key used during registration)
-key = Fernet.generate_key()  
-cipher = Fernet(key)
 
 @router.post("/tarjeta")
 def registrar_tarjeta(tarjeta_data: TarjetaCreate, db: Session = Depends(get_db)):
@@ -68,23 +61,29 @@ def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_
 
 
 @router.post("/validarTarjeta")
-def validar_tarjeta(idtarjeta: str, ccv: str, db: Session = Depends(get_db)):
+def validar_tarjeta(
+    tarjeta_request: TarjetaRequest, db: Session = Depends(get_db)
+):
     try:
-        # Obtener la tarjeta desde la base de datos
-        tarjeta = db.query(Tarjeta).filter(Tarjeta.IDTARJETA == idtarjeta).first()
+        encrypted_numerotarjeta = cipher.encrypt(tarjeta_request.numero_tarjeta.encode()).decode()
+        print("Número de tarjeta cifrado:", encrypted_numerotarjeta)
 
-        # Si la tarjeta no existe
+        tarjeta = db.query(Tarjeta).filter(Tarjeta.NUMEROTARJETA == encrypted_numerotarjeta).first()
+
         if not tarjeta:
             raise HTTPException(status_code=404, detail="Tarjeta no encontrada")
 
-        # Desencriptar el CCV almacenado
-        decrypted_ccv = cipher.decrypt(tarjeta.CCV).decode()
+        decrypted_ccv = cipher.decrypt(tarjeta.CCV.encode()).decode()
 
-        # Comparar el CCV proporcionado con el almacenado
-        if decrypted_ccv == ccv:
-            return {"valid": True}
-        else:
-            return {"valid": False}
+        # Mostrar el CCV desencriptado para comparación
+        print("CCV almacenado desencriptado:", decrypted_ccv)
+        print("CCV proporcionado:", tarjeta_request.ccv)
+
+        if decrypted_ccv != tarjeta_request.ccv:
+            raise HTTPException(status_code=400, detail="CCV incorrecto")
+
+        return {"valid": True}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al validar la tarjeta: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al validar la tarjeta: {str(e)}")
+

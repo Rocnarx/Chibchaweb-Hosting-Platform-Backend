@@ -115,5 +115,7 @@ class AgregarDominioRequest(BaseModel):
 class TarjetaRequest(BaseModel):
     numero_tarjeta: str
     ccv: str
-    fecha_vto: str
-    id_cuenta: str
+
+class TarjetaValidarResponse(BaseModel):
+    valid: bool 
+    mensaje: str
