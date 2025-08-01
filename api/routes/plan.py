@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from api.DTO.models_sqlalchemy import Cuenta, Plan
 from ..DAO.database import SessionLocal
-from api.DTO.models import MiPlanResponse, CambiarPlanRequest
+from api.DTO.models import MiPlanResponse, CambiarPlanRequest, PlanResponse
 
 router = APIRouter()
 
@@ -27,7 +27,8 @@ def obtener_mi_plan(idcuenta: str = Query(...), db: Session = Depends(get_db)):
     return MiPlanResponse(
         idplan=plan.IDPLAN,
         nombreplan=plan.NOMBREPLAN,
-        comision=plan.COMISION
+        comision=plan.COMISION,
+        limitedominios=plan.LIMITEDOMINIOS
     )
 
 @router.put("/CambiarPlan")
@@ -48,3 +49,11 @@ def cambiar_plan(data: CambiarPlanRequest, db: Session = Depends(get_db)):
         "message": f"Plan actualizado exitosamente para la cuenta {data.idcuenta}",
         "nuevo_plan": plan.NOMBREPLAN
     }
+
+@router.get("/Planes", response_model=PlanResponse)
+def obtener_plan(idplan: str = Query(...), db: Session = Depends(get_db)):
+    plan = db.query(Plan).filter_by(IDPLAN=idplan).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+
+    return plan

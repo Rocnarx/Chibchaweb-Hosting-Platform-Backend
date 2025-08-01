@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Literal
 from datetime import date
 from decimal import Decimal
@@ -196,7 +196,13 @@ class MiPlanResponse(BaseModel):
     idplan: str
     nombreplan: str
     comision: int
+    limitedominios: int
 
 class CambiarPlanRequest(BaseModel):
     idcuenta: str
     idplan: str
+
+class PlanResponse(BaseModel):
+    idplan: str = Field(..., alias="IDPLAN")
+    nombreplan: str = Field(..., alias="NOMBREPLAN")
+    comision: int = Field(..., alias="COMISION")
