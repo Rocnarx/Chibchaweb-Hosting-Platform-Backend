@@ -44,7 +44,9 @@ class Plan(Base):
     IDPLAN = Column(String(15), primary_key=True)
     NOMBREPLAN = Column(String(15), nullable=False)
     COMISION = Column(DECIMAL(10, 2), nullable=False)
+    LIMITEDOMINIOS = Column(Integer, nullable=False)
     CUENTAS = relationship("Cuenta", back_populates="PLAN_REL")
+    
 
 class Pais(Base):
     __tablename__ = "PAIS"

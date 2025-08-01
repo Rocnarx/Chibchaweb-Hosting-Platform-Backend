@@ -63,11 +63,13 @@ def modificar_comision(data: ComisionUpdateRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Plan no encontrado")
 
     plan.COMISION = data.comision
+    plan.LIMITEDOMINIOS = data.limitedominios
     db.commit()
     db.refresh(plan)
 
     return {
         "message": f"Comisión actualizada correctamente para el plan {plan.NOMBREPLAN}",
         "idplan": plan.IDPLAN,
-        "nueva_comision": plan.COMISION
+        "nueva_comision": plan.COMISION,
+        "nuevo limite" : plan.LIMITEDOMINIOS
     }

@@ -190,3 +190,13 @@ class CuentaResponse(BaseModel):
 class ComisionUpdateRequest(BaseModel):
     idplan: str
     comision: Decimal
+    limitedominios: int
+
+class MiPlanResponse(BaseModel):
+    idplan: str
+    nombreplan: str
+    comision: int
+
+class CambiarPlanRequest(BaseModel):
+    idcuenta: str
+    idplan: str
