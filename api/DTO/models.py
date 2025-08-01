@@ -203,6 +203,8 @@ class CambiarPlanRequest(BaseModel):
     idplan: str
 
 class PlanResponse(BaseModel):
-    idplan: str = Field(..., alias="IDPLAN")
-    nombreplan: str = Field(..., alias="NOMBREPLAN")
-    comision: int = Field(..., alias="COMISION")
+    idplan: str
+    nombreplan: str
+    comision: float
+    limitedominios: int
+

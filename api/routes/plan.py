@@ -29,6 +29,7 @@ def obtener_mi_plan(idcuenta: str = Query(...), db: Session = Depends(get_db)):
         nombreplan=plan.NOMBREPLAN,
         comision=plan.COMISION,
         limitedominios=plan.LIMITEDOMINIOS
+        
     )
 
 @router.put("/CambiarPlan")
@@ -56,4 +57,9 @@ def obtener_plan(idplan: str = Query(...), db: Session = Depends(get_db)):
     if not plan:
         raise HTTPException(status_code=404, detail="Plan no encontrado")
 
-    return plan
+    return PlanResponse(
+        idplan=plan.IDPLAN,
+        nombreplan=plan.NOMBREPLAN,
+        comision=float(plan.COMISION),
+        limitedominios=plan.LIMITEDOMINIOS
+    )
