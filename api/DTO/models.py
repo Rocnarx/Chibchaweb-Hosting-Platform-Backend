@@ -186,3 +186,7 @@ class CuentaResponse(BaseModel):
     TELEFONO: int
     FECHAREGISTRO: date
     DIRECCION: Optional[str]
+
+class ComisionUpdateRequest(BaseModel):
+    idplan: str
+    comision: Decimal

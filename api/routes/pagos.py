@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from api.DAO.database import SessionLocal
-from api.DTO.models import FacturaCreate, CarritoEstadoUpdate
-from api.DTO.models_sqlalchemy import Factura, Carrito
+from api.DTO.models import FacturaCreate, CarritoEstadoUpdate, ComisionUpdateRequest
+from api.DTO.models_sqlalchemy import Factura, Carrito, Plan
 
 router = APIRouter()
 
@@ -53,4 +53,21 @@ def confirmar_pago_carrito(data: CarritoEstadoUpdate, db: Session = Depends(get_
         "message": "Estado del carrito actualizado a facturado",
         "idcarrito": carrito.IDCARRITO,
         "nuevo_estado": carrito.IDESTADOCARRITO
+    }
+
+@router.put("/modificar-comision")
+def modificar_comision(data: ComisionUpdateRequest, db: Session = Depends(get_db)):
+    plan = db.query(Plan).filter_by(IDPLAN=data.idplan).first()
+
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado")
+
+    plan.COMISION = data.comision
+    db.commit()
+    db.refresh(plan)
+
+    return {
+        "message": f"Comisión actualizada correctamente para el plan {plan.NOMBREPLAN}",
+        "idplan": plan.IDPLAN,
+        "nueva_comision": plan.COMISION
     }

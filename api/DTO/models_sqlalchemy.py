@@ -38,15 +38,12 @@ class Cuenta(Base):
     PLAN_REL = relationship("Plan", back_populates="CUENTAS")
     METODOSPAGO = relationship("MetodoPagoCuenta", back_populates="CUENTA_REL")
 
-
-
-
-
 class Plan(Base):
     __tablename__ = "PLAN"
 
     IDPLAN = Column(String(15), primary_key=True)
     NOMBREPLAN = Column(String(15), nullable=False)
+    COMISION = Column(DECIMAL(10, 2), nullable=False)
     CUENTAS = relationship("Cuenta", back_populates="PLAN_REL")
 
 class Pais(Base):

@@ -9,7 +9,7 @@ from .metodospago import router as metodospago_router
 from .preciosextensiones import router_precios
 from .traducciones import router as traducciones_router
 from .facturas import router as facturas_router
-from .plan import router as plan_router
+from .paquete import router as paquete_router
 
 router = APIRouter()
 router.include_router(carrito_router)
@@ -22,5 +22,5 @@ router.include_router(metodospago_router)
 router.include_router(router_precios)
 router.include_router(traducciones_router)
 router.include_router(facturas_router)
-router.include_router(plan_router)
+router.include_router(paquete_router)
 
