@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr,field_validator
+from pydantic import BaseModel, EmailStr,field_validator, Field
 from typing import List, Optional, Literal
 from datetime import date
 from decimal import Decimal
@@ -258,3 +258,14 @@ class ComprarPaqueteRequest(BaseModel):
     idcuenta: str
     idpaquetehosting: int
     estado: int
+
+class CuentaAdminUpdateRequest(BaseModel):
+    idtipocuenta: Optional[int] = Field(None, alias="IDTIPOCUENTA")
+    idpais: Optional[int] = Field(None, alias="IDPAIS")
+    idplan: Optional[int] = Field(None, alias="IDPLAN")
+    nombrecuenta: Optional[str] = Field(None, alias="NOMBRECUENTA")
+    correo: Optional[EmailStr] = Field(None, alias="CORREO")
+    telefono: Optional[int] = Field(None, alias="TELEFONO")
+    fecharegistro: Optional[date] = Field(None, alias="FECHAREGISTRO")
+    direccion: Optional[str] = Field(None, alias="DIRECCION")
+                                          

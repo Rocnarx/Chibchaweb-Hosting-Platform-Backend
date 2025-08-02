@@ -5,7 +5,7 @@ import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
 from api.ORM.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
-from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse
+from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse, CuentaAdminUpdateRequest
 from passlib.hash import bcrypt
 import random
 import string
@@ -244,3 +244,25 @@ def estoy_verificado(idcuenta: str, db: Session = Depends(get_db)):
         return {"verificado": True}
     else:
         return {"verificado": False}
+    
+@router.put("/admin/modificar_cuenta/{idcuenta}")
+def modificar_cuenta_admin(idcuenta: str, datos_actualizados: CuentaAdminUpdateRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDCUENTA == idcuenta).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    campos_actualizables = [
+        "IDTIPOCUENTA", "IDPAIS", "IDPLAN", "NOMBRECUENTA",
+        "CORREO", "TELEFONO", "FECHAREGISTRO", "DIRECCION"
+    ]
+
+    for campo in campos_actualizables:
+        nuevo_valor = getattr(datos_actualizados, campo.lower(), None)
+        if nuevo_valor is not None:
+            setattr(cuenta, campo, nuevo_valor)
+
+    db.commit()
+    db.refresh(cuenta)
+
+    return {"mensaje": "Cuenta modificada correctamente"}
