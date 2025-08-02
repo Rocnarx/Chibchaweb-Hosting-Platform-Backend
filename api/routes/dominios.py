@@ -213,7 +213,7 @@ def actualizar_ocupado_dominio(data: ActualizarOcupadoDominioRequestList, db: Se
         xml_bytes = buffer.getvalue()
 
         enviar_xml_por_correo("solicitud_dominios.xml", xml_bytes, cuenta.CORREO)
-
+        
         return {
             "identificacion": cuenta.IDENTIFICACION,
             "dominios_pagados": dominios_pagados,
