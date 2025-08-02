@@ -232,3 +232,15 @@ def confirmar_registro(token: str, idcuenta: str, db: Session = Depends(get_db))
     db.commit()
 
     return {"mensaje": "Cuenta verificada correctamente. Ya puedes iniciar sesión."}
+
+@router.get("/estoy-verificado")
+def estoy_verificado(idcuenta: str, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDCUENTA == idcuenta).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+
+    if cuenta.TOKEN == "NA":
+        return {"verificado": True}
+    else:
+        return {"verificado": False}
