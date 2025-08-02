@@ -12,13 +12,13 @@ app.include_router(router, dependencies=[Depends(verificar_api_key)])
 origins = [
     "http://localhost:5173",
     "https://chibchaweb-hosting-platform-frontend-production.up.railway.app",
-    "https://chibchaweb.site",
+    "https://www.chibchaweb.site",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
