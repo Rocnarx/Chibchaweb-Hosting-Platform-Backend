@@ -269,3 +269,6 @@ class CuentaAdminUpdateRequest(BaseModel):
     fecharegistro: Optional[date] = Field(None, alias="FECHAREGISTRO")
     direccion: Optional[str] = Field(None, alias="DIRECCION")
                                           
+class CambiarTipoCuentaRequest(BaseModel):
+    idcuenta: str = Field(..., alias="IDCUENTA")
+    idtipocuenta: int = Field(..., alias="IDTIPOCUENTA")

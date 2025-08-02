@@ -4,8 +4,8 @@ from datetime import datetime
 import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.ORM.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
-from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse, CuentaAdminUpdateRequest
+from api.ORM.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta, TipoCuenta
+from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse, CuentaAdminUpdateRequest, CambiarTipoCuentaRequest
 from passlib.hash import bcrypt
 import random
 import string
@@ -14,6 +14,7 @@ import uuid
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter()
 
@@ -266,3 +267,37 @@ def modificar_cuenta_admin(idcuenta: str, datos_actualizados: CuentaAdminUpdateR
     db.refresh(cuenta)
 
     return {"mensaje": "Cuenta modificada correctamente"}
+
+@router.delete("/admin/eliminar_cuenta/{idcuenta}")
+def eliminar_cuenta(idcuenta: str, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDCUENTA == idcuenta).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    try:
+        db.delete(cuenta)
+        db.commit()
+        return {"mensaje": f"Cuenta con ID '{idcuenta}' eliminada correctamente"}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede eliminar la cuenta porque tiene datos relacionados en otras tablas"
+        )
+    
+@router.patch("/admin/cambiar_tipo_cuenta")
+def cambiar_tipo_cuenta(data: CambiarTipoCuentaRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDCUENTA == data.idcuenta).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    tipo_existe = db.query(TipoCuenta).filter(TipoCuenta.IDTIPOCUENTA == data.idtipocuenta).first()
+    if not tipo_existe:
+        raise HTTPException(status_code=400, detail=f"IDTIPOCUENTA '{data.idtipocuenta}' no es válido")
+
+    cuenta.IDTIPOCUENTA = data.idtipocuenta
+    db.commit()
+
+    return {"mensaje": f"Tipo de cuenta actualizado correctamente a {data.idtipocuenta}"}
