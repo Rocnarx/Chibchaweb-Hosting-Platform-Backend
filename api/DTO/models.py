@@ -193,7 +193,7 @@ class ComisionUpdateRequest(BaseModel):
     limitedominios: int
 
 class MiPlanResponse(BaseModel):
-    idplan: str
+    idplan: int
     nombreplan: str
     comision: int
     limitedominios: int
@@ -203,8 +203,31 @@ class CambiarPlanRequest(BaseModel):
     idplan: str
 
 class PlanResponse(BaseModel):
-    idplan: str
+    idplan: int
     nombreplan: str
     comision: float
     limitedominios: int
 
+class CrearPaqueteRequest(BaseModel):
+    cantidadsitios: int
+    nombrepaquetehosting: str
+    bd: int
+    gbenssd: int
+    correos: int
+    certificadosslhttps: int
+    preciopaquete: float
+    periodicidad: str
+
+class InfoPaqueteResponse(BaseModel):
+    cantidadsitios: int
+    nombrepaquetehosting: str
+    bd: int
+    gbenssd: int
+    correos: int
+    certificadosslhttps: int
+
+class PaqueteResponse(BaseModel):
+    idpaquetehosting: int
+    preciopaquete: float
+    periodicidad: str
+    info: InfoPaqueteResponse

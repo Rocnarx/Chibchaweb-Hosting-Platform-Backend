@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.DTO.models import CrearPlanRequest
-from api.DTO.models_sqlalchemy import InfoPaqueteHosting, Periodicidad, PaqueteHosting
+from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse
+from api.DTO.models_sqlalchemy import InfoPaqueteHosting, PaqueteHosting
+from typing import List
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def get_db():
         db.close()
 
 @router.post("/CrearPaquete")
-def crear_plan(data: CrearPlanRequest, db: Session = Depends(get_db)):
+def crear_paquete(data: CrearPaqueteRequest, db: Session = Depends(get_db)):
     try:
         # Paso 1: Crear InfoPaqueteHosting
         nuevo_info = InfoPaqueteHosting(
@@ -29,29 +30,44 @@ def crear_plan(data: CrearPlanRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(nuevo_info)
 
-        # Paso 2: Buscar o crear la periodicidad (por duración)
-        periodicidad = db.query(Periodicidad).filter_by(NOMBREPERIODICIDAD=data.nombreperiodicidad).first()
-        if not periodicidad:
-            periodicidad = Periodicidad(NOMBREPERIODICIDAD=data.nombreperiodicidad)
-            db.add(periodicidad)
-            db.commit()
-            db.refresh(periodicidad)
-
-        # Paso 3: Crear el PaqueteHosting
+        # Paso 2: Crear el PaqueteHosting con periodicidad directa (sin tabla intermedia)
         nuevo_paquete = PaqueteHosting(
             IDINFOPAQUETEHOSTING=nuevo_info.IDINFOPAQUETEHOSTING,
-            IDPERIODICIDAD=periodicidad.IDPERIODICIDAD,
-            PRECIOPAQUETE=data.preciopaquete
+            PRECIOPAQUETE=data.preciopaquete,
+            PERIODICIDAD=data.periodicidad  # varchar(100)
         )
         db.add(nuevo_paquete)
         db.commit()
         db.refresh(nuevo_paquete)
 
         return {
-            "message": "Plan creado exitosamente",
+            "message": "Paquete creado exitosamente",
             "idpaquete": nuevo_paquete.IDPAQUETEHOSTING
         }
 
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/Paquetes", response_model=List[PaqueteResponse])
+def obtener_paquetes(db: Session = Depends(get_db)):
+    paquetes = db.query(PaqueteHosting).all()
+    if not paquetes:
+        raise HTTPException(status_code=404, detail="No hay paquetes disponibles")
+
+    return [
+        PaqueteResponse(
+            idpaquetehosting=p.IDPAQUETEHOSTING,
+            preciopaquete=p.PRECIOPAQUETE,
+            periodicidad=p.PERIODICIDAD,
+            info=InfoPaqueteResponse(
+                cantidadsitios=p.infopaquete.CANTIDADSITIOS,
+                nombrepaquetehosting=p.infopaquete.NOMBREPAQUETEHOSTING,
+                bd=p.infopaquete.BD,
+                gbenssd=p.infopaquete.GBENSSD,
+                correos=p.infopaquete.CORREOS,
+                certificadosslhttps=p.infopaquete.CERTIFICADOSSSLHTTPS
+            )
+        )
+        for p in paquetes
+    ]
