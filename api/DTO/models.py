@@ -1,7 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr,field_validator
 from typing import List, Optional, Literal
 from datetime import date
 from decimal import Decimal
+from pydantic import StringConstraints
+from typing import Annotated
+
 class DomainRequest(BaseModel):
     domain: str  # sin extensión
 
@@ -216,7 +219,16 @@ class CrearPaqueteRequest(BaseModel):
     correos: int
     certificadosslhttps: int
     preciopaquete: float
-    periodicidad: str
+    periodicidad: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=3)]
+
+    @field_validator("periodicidad")
+    def validar_rango_periodicidad(cls, v):
+        if not v.isdigit():
+            raise ValueError("La periodicidad debe ser un número entre 1 y 365")
+        valor = int(v)
+        if not 1 <= valor <= 365:
+            raise ValueError("La periodicidad debe estar entre 1 y 365 días")
+        return v
 
 class InfoPaqueteResponse(BaseModel):
     cantidadsitios: int
@@ -231,3 +243,18 @@ class PaqueteResponse(BaseModel):
     preciopaquete: float
     periodicidad: str
     info: InfoPaqueteResponse
+
+class MiPaqueteResponse(BaseModel):
+    idfacturapaquete: int
+    fchpago: date
+    fchvencimiento: date
+    estado: int
+    valorfp: float
+    preciopaquete: float
+    periodicidad: str
+    info: InfoPaqueteResponse
+
+class ComprarPaqueteRequest(BaseModel):
+    idcuenta: str
+    idpaquetehosting: int
+    estado: int
