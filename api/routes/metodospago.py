@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from api.DAO.database import SessionLocal
-from api.DTO.models_sqlalchemy import Cuenta, MetodoPagoCuenta, Tarjeta
+from api.ORM.models_sqlalchemy import Cuenta, MetodoPagoCuenta, Tarjeta
 from api.DTO.models import ListaMetodoPagoResponse, MetodoPagoUsuario
 
 router = APIRouter()

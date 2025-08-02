@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from api.DTO.models_sqlalchemy import Cuenta, Plan
+from api.ORM.models_sqlalchemy import Cuenta, Plan
 from ..DAO.database import SessionLocal
 from api.DTO.models import MiPlanResponse, CambiarPlanRequest, PlanResponse
 

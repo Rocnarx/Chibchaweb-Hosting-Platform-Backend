@@ -4,7 +4,7 @@ from datetime import datetime
 import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.DTO.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
+from api.ORM.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta
 from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse
 from passlib.hash import bcrypt
 from decimal import Decimal

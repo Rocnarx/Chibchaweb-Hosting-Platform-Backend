@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from api.DAO.database import SessionLocal
 from api.DTO.models import FacturaCreate, CarritoEstadoUpdate, ComisionUpdateRequest
-from api.DTO.models_sqlalchemy import Factura, Carrito, Plan
+from api.ORM.models_sqlalchemy import Factura, Carrito, Plan
 
 router = APIRouter()
 
