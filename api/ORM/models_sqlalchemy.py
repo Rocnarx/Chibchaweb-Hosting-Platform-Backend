@@ -22,7 +22,7 @@ class Cuenta(Base):
     IDCUENTA = Column("IDCUENTA", String(15), primary_key=True)
     IDTIPOCUENTA = Column("IDTIPOCUENTA", Numeric(2), ForeignKey("TIPOCUENTA.IDTIPOCUENTA"), nullable=False)
     IDPAIS = Column("IDPAIS", Numeric(3), ForeignKey("PAIS.IDPAIS"), nullable=False)
-    IDPLAN = Column("IDPLAN", String(15), ForeignKey("PLAN.IDPLAN"), nullable=True)
+    IDPLAN = Column("IDPLAN", Integer, ForeignKey("PLAN.IDPLAN"), nullable=True)
     TOKEN = Column("TOKEN", String(1084), nullable=False)
     PASSWORD = Column("PASSWORD", String(50), nullable=False)
     IDENTIFICACION = Column("IDENTIFICACION", String(15), nullable=False)
@@ -41,7 +41,7 @@ class Cuenta(Base):
 class Plan(Base):
     __tablename__ = "PLAN"
 
-    IDPLAN = Column(String(15), primary_key=True)
+    IDPLAN = Column(Integer, primary_key=True)
     NOMBREPLAN = Column(String(15), nullable=False)
     COMISION = Column(DECIMAL(10, 2), nullable=False)
     LIMITEDOMINIOS = Column(Integer, nullable=False)

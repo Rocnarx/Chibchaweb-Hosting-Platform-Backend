@@ -182,7 +182,7 @@ class CuentaResponse(BaseModel):
     IDCUENTA: str
     IDTIPOCUENTA: int
     IDPAIS: int
-    IDPLAN: Optional[str]
+    IDPLAN: Optional[int]
     IDENTIFICACION: str
     NOMBRECUENTA: str
     CORREO: EmailStr
