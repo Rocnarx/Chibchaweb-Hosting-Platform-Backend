@@ -10,3 +10,4 @@ bcrypt
 passlib
 cryptography
 reportlab
+openai

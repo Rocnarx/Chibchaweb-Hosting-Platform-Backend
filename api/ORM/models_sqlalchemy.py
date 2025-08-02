@@ -180,3 +180,15 @@ class ItemPaquete(Base):
     NOMBREITEM = Column(String(100), nullable=True)
 
     factura = relationship("FacturaPaquete", backref="items_paquete", foreign_keys=[IDFACTURAPAQUETE])
+
+class Ticket(Base):
+    __tablename__ = "TICKET"
+
+    IDTICKET = Column(Integer, primary_key=True, autoincrement=True)
+    IDCLIENTE = Column(String(15), ForeignKey("CUENTA.IDCUENTA"), nullable=False)
+    DESCRTICKET = Column(String(1084), nullable=False)
+    NIVEL = Column(Integer, nullable=False, default=1)
+    FCHCREACION = Column(Date, nullable=False)
+    ESTADOTICKET = Column(Integer, nullable=False, default=1)
+    FCHSOLUCION = Column(Date, nullable=True)
+    IDEMPLEADO = Column(String(15), ForeignKey("CUENTA.IDCUENTA"), nullable=True)

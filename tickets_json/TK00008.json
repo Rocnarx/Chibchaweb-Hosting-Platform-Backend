@@ -1,0 +1,26 @@
+{
+    "codigo": "TK00008",
+    "id_ticket": 8,
+    "id_cliente": "1",
+    "nombre_cliente": "Prueba administrador cambio",
+    "descripcion": "Hice una transferencia, compre el paquete Chibchaweb madera y aun no lo tengo, HA PASADO UNA SEMANAA",
+    "fecha_creacion": "2025-08-02",
+    "estado": 2,
+    "nivel": 3,
+    "categoria": "reclamo",
+    "correo_cliente": "JuanPerez2@mail.com",
+    "respuesta": "Hola Prueba administrador cambio,\n\nGracias por contactarnos. Hemos recibido tu solicitud y hemos generado el ticket TK00008 para darle seguimiento.\n\nLamentamos la molestia que te ha causado no ver reflejada tu compra del paquete ChibchaWeb Madera, especialmente después de una semana. Entendemos lo frustrante que puede ser. Nuestro equipo ya está revisando el área de activación y pagos para identificar qué pudo haber ocurrido, por ejemplo, un retraso en la confirmación bancaria o en la vinculación del paquete a tu cuenta.\n\nTe estaremos informando avances y una actualización dentro de 24 a 48 horas.\n\nGracias por tu paciencia y por escribirnos. \n\nUn saludo cordial,\nEquipo de Soporte ChibchaWeb",
+    "historial": [
+        {
+            "autor": "YO",
+            "mensaje": "SOPORTENIVEL 1",
+            "fecha": "2025-08-02 17:39"
+        },
+        {
+            "autor": "USUARIO",
+            "mensaje": "SOPORTENIVELASDSAD 1",
+            "fecha": "2025-08-02 17:39"
+        }
+    ],
+    "idempleado": "2"
+}

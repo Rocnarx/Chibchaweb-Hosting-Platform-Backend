@@ -272,3 +272,22 @@ class CuentaAdminUpdateRequest(BaseModel):
 class CambiarTipoCuentaRequest(BaseModel):
     idcuenta: str = Field(..., alias="IDCUENTA")
     idtipocuenta: int = Field(..., alias="IDTIPOCUENTA")
+
+class CrearTicketRequest(BaseModel):
+    idcliente: str = Field(..., alias="IDCLIENTE")
+    descrip_ticket: str = Field(..., alias="DESCRICTICKET")
+
+from pydantic import BaseModel, Field
+
+class RespuestaTicketRequest(BaseModel):
+    mensaje: str = Field(..., description="Contenido del mensaje que se desea agregar al historial")
+    autor: str = Field(..., description="Quién responde: 'Soporte', 'Cliente', 'Sistema', etc.")
+
+class CambiarNivelTicketRequest(BaseModel):
+    nivel: int = Field(..., ge=1, le=3)
+
+class CambiarEstadoTicketRequest(BaseModel):
+    estado: int = Field(..., ge=1, le=3)
+
+class AsignarTicketRequest(BaseModel):
+    idempleado: str = Field(..., alias="IDEMPLEADO")

@@ -11,7 +11,11 @@ from .traducciones import router as traducciones_router
 from .facturas import router as facturas_router
 from .paquete import router as paquete_router
 from .plan import router as plan_router
+from .ticket import router as ticket_router
+
 router = APIRouter()
+
+
 router.include_router(carrito_router)
 router.include_router(dominios_router)
 router.include_router(perfiles_router)
@@ -24,3 +28,4 @@ router.include_router(traducciones_router)
 router.include_router(facturas_router)
 router.include_router(paquete_router)
 router.include_router(plan_router)
+router.include_router(ticket_router)
