@@ -310,3 +310,14 @@ class ModificarPaqueteRequest(BaseModel):
 
 class EliminarPaqueteRequest(BaseModel):
     nombrepaquetehosting: str
+
+class ItemFacturaResponse(BaseModel):
+    idregitempaquete: int = Field(..., alias="IDREGITEMPAQUETE")
+    descripcion: str = Field(..., alias="DESCRIPCION")
+    tamano: str = Field(..., alias="TAMANO")
+    nombreitem: str = Field(..., alias="NOMBREITEM")
+
+class ActualizarItemFacturaRequest(BaseModel):
+    idregitempaquete: int
+    tamano: Optional[str] = None
+    nombreitem: Optional[str] = None

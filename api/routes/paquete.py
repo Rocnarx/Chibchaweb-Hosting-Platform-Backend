@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse, MiPaqueteResponse, ComprarPaqueteRequest, ModificarPaqueteRequest, EliminarPaqueteRequest
-from api.ORM.models_sqlalchemy import InfoPaqueteHosting, PaqueteHosting, MetodoPagoCuenta, FacturaPaquete
-from typing import List
+from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse, MiPaqueteResponse, ComprarPaqueteRequest, ModificarPaqueteRequest, EliminarPaqueteRequest, ItemFacturaResponse, ActualizarItemFacturaRequest
+from api.ORM.models_sqlalchemy import InfoPaqueteHosting, PaqueteHosting, MetodoPagoCuenta, FacturaPaquete, ItemPaquete
+from typing import List, Optional
 from datetime import datetime, timedelta
 import re
+import random 
+
 router = APIRouter()
 
 def get_db():
@@ -106,6 +108,75 @@ def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends
     )
 )
 
+
+def generar_items_para_factura(idfacturapaquete: int, db: Session):
+    factura = db.query(FacturaPaquete).filter_by(IDFACTURAPAQUETE=idfacturapaquete).first()
+
+    if not factura:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+
+    paquete = factura.paquete_hosting
+    if not paquete:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado para la factura")
+
+    info = paquete.infopaquete
+    if not info:
+        raise HTTPException(status_code=404, detail="Info del paquete no encontrada")
+
+    items = []
+
+    # 1. Sitios Web (DESCRIPCION="Web")
+    for i in range(int(info.CANTIDADSITIOS)):
+        items.append(ItemPaquete(
+            IDFACTURAPAQUETE=factura.IDFACTURAPAQUETE,
+            DESCRIPCION="Web",
+            TAMANO="NA",
+            NOMBREITEM=f"Sitio Web {i+1}"
+        ))
+
+    # 2. Bases de Datos (DESCRIPCION="BD")
+    for i in range(int(info.BD)):
+        items.append(ItemPaquete(
+            IDFACTURAPAQUETE=factura.IDFACTURAPAQUETE,
+            DESCRIPCION="BD",
+            TAMANO="NA",
+            NOMBREITEM=f"BASE {i+1}"
+        ))
+
+    # 3. GB en SSD (DESCRIPCION="GBenSSD", solo uno, TAMAÑO=0)
+    items.append(ItemPaquete(
+        IDFACTURAPAQUETE=factura.IDFACTURAPAQUETE,
+        DESCRIPCION="GBenSSD",
+        TAMANO="0",  # para que el usuario indique hasta cuántos GB usar
+        NOMBREITEM="Nube 1"
+    ))
+
+    # 4. Correos electrónicos (DESCRIPCION="CORREO")
+    for i in range(int(info.CORREOS)):
+        correo_simulado = f"correo{i+1}@chibchaweb.com"
+        items.append(ItemPaquete(
+            IDFACTURAPAQUETE=factura.IDFACTURAPAQUETE,
+            DESCRIPCION="CORREO",
+            TAMANO="NA",
+            NOMBREITEM=correo_simulado
+        ))
+
+    # 5. Certificados SSL (DESCRIPCION="SSL")
+    for i in range(int(info.CERTIFICADOSSSLHTTPS)):
+        ssl_simulado = f"SSL-{i+1:02d}-{random.randint(1000,9999)}"
+        items.append(ItemPaquete(
+            IDFACTURAPAQUETE=factura.IDFACTURAPAQUETE,
+            DESCRIPCION="SSL",
+            TAMANO="NA",
+            NOMBREITEM=ssl_simulado
+        ))
+
+    db.add_all(items)
+    db.commit()
+
+
+
+
 @router.post("/ComprarPaquete")
 def comprar_paquete(data: ComprarPaqueteRequest, db: Session = Depends(get_db)):
     try:
@@ -142,6 +213,8 @@ def comprar_paquete(data: ComprarPaqueteRequest, db: Session = Depends(get_db)):
         db.add(nueva_factura)
         db.commit()
         db.refresh(nueva_factura)
+
+        generar_items_para_factura(nueva_factura.IDFACTURAPAQUETE, db)
 
         return {
             "message": "Paquete comprado exitosamente",
@@ -214,3 +287,38 @@ def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)
     return {
         "mensaje": f"InfoPaquete '{data.nombrepaquetehosting}' y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."
     }
+
+@router.get("/ItemsFactura", response_model=List[ItemFacturaResponse])
+def obtener_items_factura(
+    idfacturapaquete: int = Query(...),
+    descripcion: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(ItemPaquete).filter_by(IDFACTURAPAQUETE=idfacturapaquete)
+
+    if descripcion:
+        query = query.filter(ItemPaquete.DESCRIPCION == descripcion)
+
+    items = query.all()
+
+    if not items:
+        raise HTTPException(status_code=404, detail="No hay ítems que coincidan con los filtros")
+
+    return items
+
+@router.put("/EditarItemFactura")
+def actualizar_item_factura(data: ActualizarItemFacturaRequest, db: Session = Depends(get_db)):
+    item = db.query(ItemPaquete).filter_by(IDREGITEMPAQUETE=data.idregitempaquete).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Ítem no encontrado")
+
+    if data.tamano is not None:
+        item.TAMANO = data.tamano
+
+    if data.nombreitem is not None:
+        item.NOMBREITEM = data.nombreitem
+
+    db.commit()
+
+    return {"mensaje": "Ítem actualizado correctamente"}
