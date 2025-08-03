@@ -114,7 +114,7 @@ def registrar_cuenta2(cuenta_data: CuentaCreate, db: Session = Depends(get_db)):
 
         remitente = os.getenv("EMAIL_REMITENTE")
         contrasena = os.getenv("EMAIL_CONTRASENA")
-        enlace = f"Aquí FELIEP ME PASA EL ENLACE"
+        enlace = f"https://www.chibchaweb.site/verificar?token={token_verificacion}&idcuenta={idcuenta}"
 
         msg = EmailMessage()
         msg["Subject"] = "Verifica tu cuenta en ChibchaWeb"
