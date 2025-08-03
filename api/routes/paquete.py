@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse, MiPaqueteResponse, ComprarPaqueteRequest
+from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse, MiPaqueteResponse, ComprarPaqueteRequest, ModificarPaqueteRequest, EliminarPaqueteRequest
 from api.ORM.models_sqlalchemy import InfoPaqueteHosting, PaqueteHosting, MetodoPagoCuenta, FacturaPaquete
 from typing import List
 from datetime import datetime, timedelta
@@ -75,12 +75,10 @@ def obtener_paquetes(db: Session = Depends(get_db)):
 
 @router.get("/MiPaquete", response_model=MiPaqueteResponse)
 def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends(get_db)):
-    # Buscar método de pago asociado a la cuenta
     metodo = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=idcuenta).first()
     if not metodo:
         raise HTTPException(status_code=404, detail="Método de pago no encontrado para la cuenta")
 
-    # Buscar la factura asociada al método de pago
     factura = db.query(FacturaPaquete).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).first()
     if not factura:
         raise HTTPException(status_code=404, detail="Factura de paquete no encontrada")
@@ -90,19 +88,20 @@ def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends
 
     return MiPaqueteResponse(
         idfacturapaquete=factura.IDFACTURAPAQUETE,
+        idinfopaquetehosting=paquete.IDINFOPAQUETEHOSTING,  # ✅ agregado aquí
         fchpago=factura.FCHPAGO,
         fchvencimiento=factura.FCHVENCIMIENTO,
         estado=factura.ESTADO,
-        valorfp=factura.VALORFP,
-        preciopaquete=paquete.PRECIOPAQUETE,
+        valorfp=float(factura.VALORFP),
+        preciopaquete=float(paquete.PRECIOPAQUETE),
         periodicidad=paquete.PERIODICIDAD,
         info=InfoPaqueteResponse(
-            cantidadsitios=info.CANTIDADSITIOS,
+            cantidadsitios=int(info.CANTIDADSITIOS),
             nombrepaquetehosting=info.NOMBREPAQUETEHOSTING,
-            bd=info.BD,
-            gbenssd=info.GBENSSD,
-            correos=info.CORREOS,
-            certificadosslhttps=info.CERTIFICADOSSSLHTTPS
+            bd=int(info.BD),
+            gbenssd=int(info.GBENSSD),
+            correos=int(info.CORREOS),
+            certificadosslhttps=int(info.CERTIFICADOSSSLHTTPS)
         )
     )
 
@@ -153,3 +152,62 @@ def comprar_paquete(data: ComprarPaqueteRequest, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.put("/ModificarPaquete")
+def modificar_paquete(data: ModificarPaqueteRequest, db: Session = Depends(get_db)):
+    # Buscar el paquete
+    paquete = db.query(PaqueteHosting).filter_by(IDPAQUETEHOSTING=data.idpaquetehosting).first()
+    if not paquete:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado")
+
+    # Buscar la información del paquete
+    info = db.query(InfoPaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).first()
+    if not info:
+        raise HTTPException(status_code=404, detail="InfoPaquete no encontrada")
+
+    # Actualizar solo los campos que fueron enviados
+    if data.preciopaquete is not None:
+        paquete.PRECIOPAQUETE = data.preciopaquete
+    if data.periodicidad is not None:
+        paquete.PERIODICIDAD = data.periodicidad
+
+    if data.cantidadsitios is not None:
+        info.CANTIDADSITIOS = data.cantidadsitios
+    if data.nombrepaquetehosting is not None:
+        info.NOMBREPAQUETEHOSTING = data.nombrepaquetehosting
+    if data.bd is not None:
+        info.BD = data.bd
+    if data.gbenssd is not None:
+        info.GBENSSD = data.gbenssd
+    if data.correos is not None:
+        info.CORREOS = data.correos
+    if data.certificadosslhttps is not None:
+        info.CERTIFICADOSSSLHTTPS = data.certificadosslhttps
+
+    db.commit()
+
+    return {"mensaje": "Paquete modificado correctamente"}
+
+@router.delete("/EliminarPaquete")
+def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)):
+    info = db.query(InfoPaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).first()
+    if not info:
+        raise HTTPException(status_code=404, detail="InfoPaquete no encontrado")
+
+    paquetes = db.query(PaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).all()
+
+    # Desvincular facturas (poner NULL en IDPAQUETEHOSTING)
+    for paquete in paquetes:
+        for factura in paquete.facturas_paquete:
+            factura.IDPAQUETEHOSTING = None
+
+    # Eliminar paquetes
+    for paquete in paquetes:
+        db.delete(paquete)
+
+    # Eliminar info
+    db.delete(info)
+
+    db.commit()
+
+    return {"mensaje": f"InfoPaquete {data.idinfopaquetehosting} y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."}

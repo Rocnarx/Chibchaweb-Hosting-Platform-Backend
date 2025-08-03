@@ -160,7 +160,7 @@ class FacturaPaquete(Base):
 
     IDFACTURAPAQUETE = Column(Integer, primary_key=True, autoincrement=True)
     IDMETODOPAGOCUENTA = Column(Integer, ForeignKey("METODOPAGOCUENTA.IDMETODOPAGOCUENTA"), nullable=False)
-    IDPAQUETEHOSTING = Column(Integer, ForeignKey("PAQUETEHOSTING.IDPAQUETEHOSTING"), nullable=False)
+    IDPAQUETEHOSTING = Column(Integer, ForeignKey("PAQUETEHOSTING.IDPAQUETEHOSTING"), nullable=True)
     FCHPAGO = Column(Date, nullable=False)
     FCHVENCIMIENTO = Column(Date, nullable=False)
     ESTADO = Column(Integer, nullable=False)

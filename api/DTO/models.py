@@ -246,6 +246,7 @@ class PaqueteResponse(BaseModel):
 
 class MiPaqueteResponse(BaseModel):
     idfacturapaquete: int
+    idinfopaquetehosting: int
     fchpago: date
     fchvencimiento: date
     estado: int
@@ -291,3 +292,19 @@ class CambiarEstadoTicketRequest(BaseModel):
 
 class AsignarTicketRequest(BaseModel):
     idempleado: str = Field(..., alias="IDEMPLEADO")
+
+class ModificarPaqueteRequest(BaseModel):
+    idpaquetehosting: int 
+    idinfopaquetehosting: int 
+
+    preciopaquete: Optional[float] = None
+    periodicidad: Optional[str] = None
+    cantidadsitios: Optional[int] = None
+    nombrepaquetehosting: Optional[str] = None
+    bd: Optional[int] = None
+    gbenssd: Optional[int] = None
+    correos: Optional[int] = None
+    certificadosslhttps: Optional[int] = None
+
+class EliminarPaqueteRequest(BaseModel):
+    idinfopaquetehosting: int
