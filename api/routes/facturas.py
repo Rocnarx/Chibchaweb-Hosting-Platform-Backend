@@ -59,7 +59,7 @@ def generar_factura_pdf(data: dict) -> bytes:
     width, height = letter
 
     try:
-        logo_path = "resources\logo.png"
+        logo_path = os.path.join("resources", "logo.png")
         logo = ImageReader(logo_path)
 
         # Calcular dimensiones conservando proporción

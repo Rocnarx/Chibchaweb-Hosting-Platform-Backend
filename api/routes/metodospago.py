@@ -3,6 +3,11 @@ from sqlalchemy.orm import Session, joinedload
 from api.DAO.database import SessionLocal
 from api.ORM.models_sqlalchemy import Cuenta, MetodoPagoCuenta, Tarjeta
 from api.DTO.models import ListaMetodoPagoResponse, MetodoPagoUsuario
+import os
+from cryptography.fernet import Fernet
+FERNET_KEY = os.getenv("FERNET_KEY")
+
+cipher = Fernet(FERNET_KEY.encode())
 
 router = APIRouter()
 
@@ -12,6 +17,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 @router.get("/metodosPagoUsuario", response_model=ListaMetodoPagoResponse)
 def obtener_metodos_pago_usuario(identificacion: str, db: Session = Depends(get_db)):
@@ -28,9 +34,13 @@ def obtener_metodos_pago_usuario(identificacion: str, db: Session = Depends(get_
     metodos = []
     for metodo in cuenta.METODOSPAGO:
         if metodo.TARJETA_REL:
+            try:
+                decrypted_numero = cipher.decrypt(metodo.TARJETA_REL.NUMEROTARJETA).decode()
+            except Exception as e:
+                decrypted_numero = "ERROR"
             metodos.append(MetodoPagoUsuario(
                 identificacion=cuenta.IDENTIFICACION,
-                numerotarjeta=str(metodo.TARJETA_REL.NUMEROTARJETA),
+                numerotarjeta=decrypted_numero,
                 tipotarjeta=metodo.TARJETA_REL.IDTIPOTARJETA
             ))
 

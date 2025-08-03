@@ -52,7 +52,7 @@ def agregar_metodo_pago(data: MetodoPagoCuentaCreate, db: Session = Depends(get_
     metodo = MetodoPagoCuenta(
         IDTARJETA=data.idtarjeta,
         IDCUENTA=data.idcuenta,
-        IDTIPOMETODOPAGO=data.idtipometodopagocuenta,
+        IDTIPOMETODOPAGO=data.idtipometodopago,
         ACTIVOMETODOPAGOCUENTA=data.activometodopagocuenta
     )
 
