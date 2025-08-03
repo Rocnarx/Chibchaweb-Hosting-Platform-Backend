@@ -87,23 +87,24 @@ def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends
     info = paquete.infopaquete
 
     return MiPaqueteResponse(
-        idfacturapaquete=factura.IDFACTURAPAQUETE,
-        idinfopaquetehosting=paquete.IDINFOPAQUETEHOSTING,  # ✅ agregado aquí
-        fchpago=factura.FCHPAGO,
-        fchvencimiento=factura.FCHVENCIMIENTO,
-        estado=factura.ESTADO,
-        valorfp=float(factura.VALORFP),
-        preciopaquete=float(paquete.PRECIOPAQUETE),
-        periodicidad=paquete.PERIODICIDAD,
-        info=InfoPaqueteResponse(
-            cantidadsitios=int(info.CANTIDADSITIOS),
-            nombrepaquetehosting=info.NOMBREPAQUETEHOSTING,
-            bd=int(info.BD),
-            gbenssd=int(info.GBENSSD),
-            correos=int(info.CORREOS),
-            certificadosslhttps=int(info.CERTIFICADOSSSLHTTPS)
-        )
+    idfacturapaquete=factura.IDFACTURAPAQUETE,
+    idinfopaquetehosting=paquete.IDINFOPAQUETEHOSTING,
+    idpaquetehosting=info.IDPAQUETEHOSTING,  # ← 🔥 este es el nuevo campo
+    fchpago=factura.FCHPAGO,
+    fchvencimiento=factura.FCHVENCIMIENTO,
+    estado=factura.ESTADO,
+    valorfp=float(factura.VALORFP),
+    preciopaquete=float(paquete.PRECIOPAQUETE),
+    periodicidad=paquete.PERIODICIDAD,
+    info=InfoPaqueteResponse(
+        cantidadsitios=int(info.CANTIDADSITIOS),
+        nombrepaquetehosting=info.NOMBREPAQUETEHOSTING,
+        bd=int(info.BD),
+        gbenssd=int(info.GBENSSD),
+        correos=int(info.CORREOS),
+        certificadosslhttps=int(info.CERTIFICADOSSSLHTTPS)
     )
+)
 
 @router.post("/ComprarPaquete")
 def comprar_paquete(data: ComprarPaqueteRequest, db: Session = Depends(get_db)):
@@ -190,11 +191,11 @@ def modificar_paquete(data: ModificarPaqueteRequest, db: Session = Depends(get_d
 
 @router.delete("/EliminarPaquete")
 def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)):
-    info = db.query(InfoPaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).first()
+    info = db.query(InfoPaqueteHosting).filter_by(NOMBREPAQUETEHOSTING=data.nombrepaquetehosting).first()
     if not info:
-        raise HTTPException(status_code=404, detail="InfoPaquete no encontrado")
+        raise HTTPException(status_code=404, detail="InfoPaquete no encontrado con ese nombre")
 
-    paquetes = db.query(PaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).all()
+    paquetes = db.query(PaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=info.IDINFOPAQUETEHOSTING).all()
 
     # Desvincular facturas (poner NULL en IDPAQUETEHOSTING)
     for paquete in paquetes:
@@ -210,4 +211,6 @@ def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)
 
     db.commit()
 
-    return {"mensaje": f"InfoPaquete {data.idinfopaquetehosting} y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."}
+    return {
+        "mensaje": f"InfoPaquete '{data.nombrepaquetehosting}' y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."
+    }

@@ -246,14 +246,16 @@ class PaqueteResponse(BaseModel):
 
 class MiPaqueteResponse(BaseModel):
     idfacturapaquete: int
-    idinfopaquetehosting: int
+    idinfopaquetehosting: str
+    idpaquetehosting: str 
     fchpago: date
     fchvencimiento: date
-    estado: int
+    estado: str
     valorfp: float
     preciopaquete: float
     periodicidad: str
     info: InfoPaqueteResponse
+
 
 class ComprarPaqueteRequest(BaseModel):
     idcuenta: str
@@ -307,4 +309,4 @@ class ModificarPaqueteRequest(BaseModel):
     certificadosslhttps: Optional[int] = None
 
 class EliminarPaqueteRequest(BaseModel):
-    idinfopaquetehosting: int
+    nombrepaquetehosting: str
