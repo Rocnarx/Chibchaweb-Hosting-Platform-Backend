@@ -50,6 +50,7 @@ class TarjetaCreate(BaseModel):
     fechavto: date
 
 class MetodoPagoCuentaCreate(BaseModel):
+    idtarjeta: int
     idcuenta: str
     idtipometodopago: int
     activometodopagocuenta: bool
