@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime, DECIMAL
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime, DECIMAL, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -192,3 +192,13 @@ class Ticket(Base):
     ESTADOTICKET = Column(Integer, nullable=False, default=1)
     FCHSOLUCION = Column(Date, nullable=True)
     IDEMPLEADO = Column(String(15), ForeignKey("CUENTA.IDCUENTA"), nullable=True)
+
+class RespuestaTicket(Base):
+    __tablename__ = "RESPUESTATICKET"
+
+    IDRESPUESTATICKET = Column(Integer, primary_key=True, autoincrement=True)
+    RESPUESTA = Column(Text, nullable=False)
+    IDTICKET = Column(Integer, ForeignKey("TICKET.IDTICKET", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    FECHARESPUESTA = Column(Date, nullable=False)
+
+    ticket = relationship("Ticket", backref="respuestas")

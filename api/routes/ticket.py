@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from datetime import date
 from api.DAO.database import SessionLocal
-from api.ORM.models_sqlalchemy import Ticket, Cuenta
+from api.ORM.models_sqlalchemy import Ticket, Cuenta, RespuestaTicket
 from api.DTO.models import CrearTicketRequest, RespuestaTicketRequest, CambiarEstadoTicketRequest, CambiarNivelTicketRequest, AsignarTicketRequest
 from api.AIGEN.AI_utils import clasificar_correo, generar_respuesta_correo, enviar_email, guardar_ticket_json, agregar_respuesta_a_historial
 import glob
@@ -35,150 +35,207 @@ def crear_ticket(data: CrearTicketRequest, db: Session = Depends(get_db)):
         FCHSOLUCION=None,
         IDEMPLEADO=None
     )
-
     db.add(nuevo_ticket)
     db.commit()
     db.refresh(nuevo_ticket)
 
-    ticket_id = f"TK{nuevo_ticket.IDTICKET:05d}"
-
     respuesta_ia = generar_respuesta_correo(
         correo_entrada=data.descrip_ticket,
         modelo=modelo,
-        num_ticket=ticket_id,
-        nombre_cliente=cuenta.NOMBRECUENTA
+        nombre_cliente=cuenta.NOMBRECUENTA,
+        num_ticket=str(nuevo_ticket.IDTICKET)
     )
 
     enviado = enviar_email(
         destinatario=cuenta.CORREO,
-        asunto=f"Confirmación de Ticket {ticket_id} – ChibchaWeb",
+        asunto=f"Confirmación de Ticket {nuevo_ticket.IDTICKET} – ChibchaWeb",
         cuerpo=respuesta_ia
     )
-
     if not enviado:
         raise HTTPException(status_code=500, detail="Error al enviar el correo al cliente")
 
-    # Construir el JSON para guardar
-    data_json = {
-        "codigo": ticket_id,
-        "id_ticket": nuevo_ticket.IDTICKET,
-        "id_cliente": cuenta.IDCUENTA,
-        "nombre_cliente": cuenta.NOMBRECUENTA,
-        "descripcion": nuevo_ticket.DESCRTICKET,
-        "fecha_creacion": str(nuevo_ticket.FCHCREACION),
-        "estado": nuevo_ticket.ESTADOTICKET,
-        "nivel": nuevo_ticket.NIVEL,
-        "categoria": categoria,
-        "correo_cliente": cuenta.CORREO,
-        "respuesta": respuesta_ia
-    }
+    # respuesta_guardada = RespuestaTicket(
+    # RESPUESTA=respuesta_ia,
+    # FECHA_RESPUESTA=date.today(),  # aquí se pone la fecha manualmente
+    # IDTICKET=nuevo_ticket.IDTICKET
+    # )
 
-    # Guardar el JSON en disco
-    guardar_ticket_json(ticket_id, data_json)
+    # db.add(respuesta_guardada)
+    # db.commit()
 
     return {
         "mensaje": "Ticket creado correctamente",
-        "ticket": data_json
+        "ticket": {
+            "id_ticket": nuevo_ticket.IDTICKET,
+            "descripcion": nuevo_ticket.DESCRTICKET,
+            "categoria": categoria
+        }
     }
 
 @router.post("/ticket/{codigo}/respuesta")
-def agregar_respuesta_ticket(codigo: str, datos: RespuestaTicketRequest):
-    try:
-        nueva_entrada = agregar_respuesta_a_historial(
-            ticket_id=codigo,
-            mensaje=datos.mensaje,
-            autor=datos.autor
-        )
-        return {
-            "mensaje": f"Respuesta agregada al historial del ticket {codigo}",
-            "entrada": nueva_entrada
-        }
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar el historial: {str(e)}")
+def agregar_respuesta_ticket(
+    codigo: int =...,
+    datos: RespuestaTicketRequest = ...,
+    db: Session = Depends(get_db)
+):
+    ticket = db.query(Ticket).filter_by(IDTICKET=codigo).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {codigo} no encontrado")
+
+    respuesta = RespuestaTicket(
+        RESPUESTA=datos.mensaje,
+        FECHARESPUESTA=date.today(),
+        IDTICKET=codigo
+    )
+    db.add(respuesta)
+    db.commit()
+    db.refresh(respuesta)
+
+    return {
+        "mensaje": f"Respuesta agregada correctamente al ticket {codigo}",
+        "id_respuesta": respuesta.IDRESPUESTATICKET,
+        "fecha": str(respuesta.FECHARESPUESTA),
+        "contenido": respuesta.RESPUESTA
+    }
+
 
 @router.get("/consultarTicketporIDCUENTA")
-def consultar_tickets_por_idcuenta(idcuenta: str = Query(...)):
-    ruta = "tickets_json"
-    coincidencias = []
+def consultar_tickets_por_cuenta(
+    idcuenta: str = Query(..., description="ID de la cuenta (cliente)"),
+    db: Session = Depends(get_db)
+):
+    cuenta = db.query(Cuenta).filter_by(IDCUENTA=idcuenta).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail=f"Cuenta {idcuenta} no encontrada")
 
-    for file_path in glob.glob(f"{ruta}/TK*.json"):
-        with open(file_path, "r", encoding="utf-8") as f:
-            ticket_data = json.load(f)
-            if ticket_data.get("id_cliente") == idcuenta:
-                coincidencias.append(ticket_data)
+    tickets = db.query(Ticket).filter_by(IDCLIENTE=idcuenta).all()
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No se encontraron tickets asociados a esta cuenta")
 
-    if not coincidencias:
-        raise HTTPException(status_code=404, detail="No se encontraron tickets para esta cuenta")
+    resultados = []
+    for t in tickets:
+        empleado = db.query(Cuenta).filter_by(IDCUENTA=t.IDEMPLEADO).first() if t.IDEMPLEADO else None
 
-    return {"tickets": coincidencias}
+        resultados.append({
+            "id_ticket": t.IDTICKET,
+            "descripcion": t.DESCRTICKET,
+            "nivel": t.NIVEL,
+            "estado": t.ESTADOTICKET,
+            "fecha_creacion": t.FCHCREACION,
+            "fecha_solucion": t.FCHSOLUCION,
+            "empleado_asignado": {
+                "id": empleado.IDCUENTA,
+                "nombre": empleado.NOMBRECUENTA,
+                "correo": empleado.CORREO
+            } if empleado else None
+        })
+
+    return {
+        "cliente": {
+            "id": cuenta.IDCUENTA,
+            "nombre": cuenta.NOMBRECUENTA,
+            "correo": cuenta.CORREO
+        },
+        "tickets": resultados
+    }
 
 @router.patch("/CambiarNivelTicket/{codigo}")
-def cambiar_nivel_ticket(codigo: str, data: CambiarNivelTicketRequest):
-    ruta = os.path.join("tickets_json", f"{codigo}.json")
-    if not os.path.exists(ruta):
+def cambiar_nivel_ticket(
+    codigo: int = ...,
+    data: CambiarNivelTicketRequest = ...,
+    db: Session = Depends(get_db)
+):
+    ticket = db.query(Ticket).filter_by(IDTICKET=codigo).first()
+    if not ticket:
         raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
-    with open(ruta, "r", encoding="utf-8") as f:
-        ticket = json.load(f)
-
-    ticket["nivel"] = data.nivel
-
-    with open(ruta, "w", encoding="utf-8") as f:
-        json.dump(ticket, f, ensure_ascii=False, indent=4)
+    ticket.NIVEL = data.nivel
+    db.commit()
 
     return {"mensaje": f"Nivel del ticket {codigo} actualizado a {data.nivel}"}
 
 @router.patch("/CambiarEstadoTicket/{codigo}")
-def cambiar_estado_ticket(codigo: str, data: CambiarEstadoTicketRequest):
-    ruta = os.path.join("tickets_json", f"{codigo}.json")
-    if not os.path.exists(ruta):
+def cambiar_estado_ticket(
+    codigo: int = ...,
+    data: CambiarEstadoTicketRequest = ...,
+    db: Session = Depends(get_db)
+    ):
+    ticket = db.query(Ticket).filter_by(IDTICKET=codigo).first()
+    if not ticket:
         raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
-    with open(ruta, "r", encoding="utf-8") as f:
-        ticket = json.load(f)
-
-    ticket["estado"] = data.estado
-
-    with open(ruta, "w", encoding="utf-8") as f:
-        json.dump(ticket, f, ensure_ascii=False, indent=4)
+    ticket.ESTADOTICKET = data.estado
+    db.commit()
 
     return {"mensaje": f"Estado del ticket {codigo} actualizado a {data.estado}"}
-
+            
 @router.patch("/asignarTicket/{codigo}")
-def asignar_ticket(codigo: str, data: AsignarTicketRequest):
-    ruta = os.path.join("tickets_json", f"{codigo}.json")
-    if not os.path.exists(ruta):
+def asignar_ticket(
+    codigo: int = ...,
+    data: AsignarTicketRequest = ...,
+    db: Session = Depends(get_db)
+):
+    ticket = db.query(Ticket).filter_by(IDTICKET=codigo).first()
+    if not ticket:
         raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
-    with open(ruta, "r", encoding="utf-8") as f:
-        ticket = json.load(f)
+    empleado = db.query(Cuenta).filter_by(IDCUENTA=data.idempleado).first()
+    if not empleado:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
 
-    ticket["idempleado"] = data.idempleado
+    ticket.IDEMPLEADO = data.idempleado
+    db.commit()
 
-    with open(ruta, "w", encoding="utf-8") as f:
-        json.dump(ticket, f, ensure_ascii=False, indent=4)
-
-    return {"mensaje": f"Ticket {codigo} asignado al empleado {data.idempleado}"}
-
+    return {"mensaje": f"Ticket {codigo} asignado correctamente al empleado {data.idempleado}"}
 @router.get("/ticket/{codigo}")
-def obtener_ticket_por_codigo(codigo: str):
-    ruta = os.path.join("tickets_json", f"{codigo}.json")
-    if not os.path.exists(ruta):
+def obtener_ticket_por_codigo(
+    codigo: int = ...,
+    db: Session = Depends(get_db)
+):
+    ticket = db.query(Ticket).filter_by(IDTICKET=codigo).first()
+    if not ticket:
         raise HTTPException(status_code=404, detail="Ticket no encontrado")
 
-    with open(ruta, "r", encoding="utf-8") as f:
-        ticket = json.load(f)
+    cliente = db.query(Cuenta).filter_by(IDCUENTA=ticket.IDCLIENTE).first()
+    empleado = db.query(Cuenta).filter_by(IDCUENTA=ticket.IDEMPLEADO).first() if ticket.IDEMPLEADO else None
 
-    return ticket
+    respuestas = db.query(RespuestaTicket)\
+        .filter_by(IDTICKET=codigo)\
+        .order_by(RespuestaTicket.FECHARESPUESTA.asc())\
+        .all()
+
+    return {
+        "id_ticket": ticket.IDTICKET,
+        "descripcion": ticket.DESCRTICKET,
+        "estado": ticket.ESTADOTICKET,
+        "nivel": ticket.NIVEL,
+        "fecha_creacion": ticket.FCHCREACION,
+        "fecha_solucion": ticket.FCHSOLUCION,
+        "cliente": {
+            "id": cliente.IDCUENTA,
+            "nombre": cliente.NOMBRECUENTA,
+            "correo": cliente.CORREO
+        },
+        "empleado_asignado": {
+            "id": empleado.IDCUENTA,
+            "nombre": empleado.NOMBRECUENTA,
+            "correo": empleado.CORREO
+        } if empleado else None,
+        "respuestas": [
+            {
+                "id_respuesta": r.IDRESPUESTATICKET,
+                "fecha": r.FECHARESPUESTA,
+                "contenido": r.RESPUESTA
+            } for r in respuestas
+        ]
+    }
 
 @router.get("/ver-tickets")
-def ver_tickets_por_estado(estado_ticket: int = Query(...), db: Session = Depends(get_db)):
-    tickets = db.query(Ticket)\
-    .filter(Ticket.ESTADOTICKET == estado_ticket).all()
-
-
+def ver_tickets_por_estado(
+    estado_ticket: int = Query(..., description="Estado del ticket (1: ACTIVO, 2: INACTIVO)"),
+    db: Session = Depends(get_db)
+):
+    tickets = db.query(Ticket).filter(Ticket.ESTADOTICKET == estado_ticket).all()
     if not tickets:
         raise HTTPException(status_code=404, detail="No se encontraron tickets con ese estado")
 
@@ -188,11 +245,11 @@ def ver_tickets_por_estado(estado_ticket: int = Query(...), db: Session = Depend
         empleado = db.query(Cuenta).filter_by(IDCUENTA=t.IDEMPLEADO).first() if t.IDEMPLEADO else None
 
         resultados.append({
-            "idticket": t.IDTICKET,
+            "id_ticket": t.IDTICKET,
             "descripcion": t.DESCRTICKET,
             "nivel": t.NIVEL,
+            "estado": t.ESTADOTICKET,
             "fecha_creacion": t.FCHCREACION,
-            "estado_ticket": t.ESTADOTICKET,
             "fecha_solucion": t.FCHSOLUCION,
             "cliente": {
                 "id": cliente.IDCUENTA,
@@ -207,18 +264,16 @@ def ver_tickets_por_estado(estado_ticket: int = Query(...), db: Session = Depend
         })
 
     return resultados
-
 @router.get("/ver-tickets-niveles")
 def ver_tickets_por_estado_y_nivel(
-    estado_ticket: int = Query(...),
-    nivel_ticket: int = Query(...),
+    estado_ticket: int = Query(..., description="Estado del ticket (1: ACTIVO, 2: INACTIVO)"),
+    nivel_ticket: int = Query(..., description="Nivel del ticket (por ejemplo 1 a 5)"),
     db: Session = Depends(get_db)
 ):
-    tickets = db.query(Ticket)\
-        .filter(
-            Ticket.ESTADOTICKET == estado_ticket,
-            Ticket.NIVEL == nivel_ticket
-        ).all()
+    tickets = db.query(Ticket).filter(
+        Ticket.ESTADOTICKET == estado_ticket,
+        Ticket.NIVEL == nivel_ticket
+    ).all()
 
     if not tickets:
         raise HTTPException(status_code=404, detail="No se encontraron tickets con ese estado y nivel")
@@ -229,11 +284,11 @@ def ver_tickets_por_estado_y_nivel(
         empleado = db.query(Cuenta).filter_by(IDCUENTA=t.IDEMPLEADO).first() if t.IDEMPLEADO else None
 
         resultados.append({
-            "idticket": t.IDTICKET,
+            "id_ticket": t.IDTICKET,
             "descripcion": t.DESCRTICKET,
             "nivel": t.NIVEL,
+            "estado": t.ESTADOTICKET,
             "fecha_creacion": t.FCHCREACION,
-            "estado_ticket": t.ESTADOTICKET,
             "fecha_solucion": t.FCHSOLUCION,
             "cliente": {
                 "id": cliente.IDCUENTA,
