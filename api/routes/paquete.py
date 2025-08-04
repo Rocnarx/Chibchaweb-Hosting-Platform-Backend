@@ -333,3 +333,12 @@ def actualizar_item_factura(data: ActualizarItemFacturaRequest, db: Session = De
     db.commit()
 
     return {"mensaje": "Ítem actualizado correctamente"}
+
+@router.get("/InfoDePaqueteHosting")
+def obtener_idinfopaquetehosting(idpaquetehosting: int = Query(...), db: Session = Depends(get_db)):
+    paquete = db.query(PaqueteHosting).filter_by(IDPAQUETEHOSTING=idpaquetehosting).first()
+
+    if not paquete:
+        raise HTTPException(status_code=404, detail="PaqueteHosting no encontrado")
+
+    return {"idinfopaquetehosting": paquete.IDINFOPAQUETEHOSTING}
