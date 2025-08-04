@@ -309,7 +309,7 @@ class ModificarPaqueteRequest(BaseModel):
     certificadosslhttps: Optional[int] = None
 
 class EliminarPaqueteRequest(BaseModel):
-    idinfopaquetehosting: id
+    idinfopaquetehosting: int
 
 class ItemFacturaResponse(BaseModel):
     idregitempaquete: int = Field(..., alias="IDREGITEMPAQUETE")
