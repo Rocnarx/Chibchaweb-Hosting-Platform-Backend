@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime, DECIMAL, Text
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey, Numeric, Date, DateTime, DECIMAL, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -202,3 +202,15 @@ class RespuestaTicket(Base):
     FECHARESPUESTA = Column(Date, nullable=False)
 
     ticket = relationship("Ticket", backref="respuestas")
+
+class Traduccion(Base):
+    __tablename__ = "TRADUCCIONES"
+
+    IDTRADUCCION = Column(Integer, primary_key=True, autoincrement=True)
+    IDIOMA = Column(String(5), nullable=False)         # Ej: ES, EN, FR
+    CLAVE = Column(String(100), nullable=False)         # Ej: 'Welcome_message'
+    VALOR = Column(Text, nullable=False)                # Ej: '¡Bienvenidos a ChibchaWeb!'
+
+    __table_args__ = (
+        UniqueConstraint('IDIOMA', 'CLAVE', name='uq_idioma_clave'),
+    )

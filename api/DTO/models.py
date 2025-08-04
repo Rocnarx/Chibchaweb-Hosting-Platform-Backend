@@ -319,3 +319,8 @@ class ActualizarItemFacturaRequest(BaseModel):
     idregitempaquete: int
     tamano: Optional[str] = None
     nombreitem: Optional[str] = None
+
+class TraduccionRequest(BaseModel):
+    idioma: str
+    clave: str
+    valor: str
