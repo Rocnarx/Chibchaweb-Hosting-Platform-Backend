@@ -90,8 +90,8 @@ def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends
 
     return MiPaqueteResponse(
     idfacturapaquete=factura.IDFACTURAPAQUETE,
-    idinfopaquetehosting=paquete.IDINFOPAQUETEHOSTING,
-    idpaquetehosting=info.IDPAQUETEHOSTING,  # ← 🔥 este es el nuevo campo
+    idinfopaquetehosting=info.IDINFOPAQUETEHOSTING,
+    idpaquetehosting=paquete.IDPAQUETEHOSTING,  # ← 🔥 este es el nuevo campo
     fchpago=factura.FCHPAGO,
     fchvencimiento=factura.FCHVENCIMIENTO,
     estado=factura.ESTADO,
