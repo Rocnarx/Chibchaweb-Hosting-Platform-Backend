@@ -246,11 +246,11 @@ class PaqueteResponse(BaseModel):
 
 class MiPaqueteResponse(BaseModel):
     idfacturapaquete: int
-    idinfopaquetehosting: str
-    idpaquetehosting: str 
+    idinfopaquetehosting: int
+    idpaquetehosting: int 
     fchpago: date
     fchvencimiento: date
-    estado: str
+    estado: int
     valorfp: float
     preciopaquete: float
     periodicidad: str
