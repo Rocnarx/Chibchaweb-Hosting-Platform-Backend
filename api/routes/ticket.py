@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import date
 from api.DAO.database import SessionLocal
 from api.ORM.models_sqlalchemy import Ticket, Cuenta
@@ -172,3 +172,79 @@ def obtener_ticket_por_codigo(codigo: str):
         ticket = json.load(f)
 
     return ticket
+
+@router.get("/ver-tickets")
+def ver_tickets_por_estado(estado_ticket: int = Query(...), db: Session = Depends(get_db)):
+    tickets = db.query(Ticket)\
+    .filter(Ticket.ESTADOTICKET == estado_ticket).all()
+
+
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No se encontraron tickets con ese estado")
+
+    resultados = []
+    for t in tickets:
+        cliente = db.query(Cuenta).filter_by(IDCUENTA=t.IDCLIENTE).first()
+        empleado = db.query(Cuenta).filter_by(IDCUENTA=t.IDEMPLEADO).first() if t.IDEMPLEADO else None
+
+        resultados.append({
+            "idticket": t.IDTICKET,
+            "descripcion": t.DESCRTICKET,
+            "nivel": t.NIVEL,
+            "fecha_creacion": t.FCHCREACION,
+            "estado_ticket": t.ESTADOTICKET,
+            "fecha_solucion": t.FCHSOLUCION,
+            "cliente": {
+                "id": cliente.IDCUENTA,
+                "nombre": cliente.NOMBRECUENTA,
+                "correo": cliente.CORREO
+            },
+            "empleado_asignado": {
+                "id": empleado.IDCUENTA,
+                "nombre": empleado.NOMBRECUENTA,
+                "correo": empleado.CORREO
+            } if empleado else None
+        })
+
+    return resultados
+
+@router.get("/ver-tickets-niveles")
+def ver_tickets_por_estado_y_nivel(
+    estado_ticket: int = Query(...),
+    nivel_ticket: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    tickets = db.query(Ticket)\
+        .filter(
+            Ticket.ESTADOTICKET == estado_ticket,
+            Ticket.NIVEL == nivel_ticket
+        ).all()
+
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No se encontraron tickets con ese estado y nivel")
+
+    resultados = []
+    for t in tickets:
+        cliente = db.query(Cuenta).filter_by(IDCUENTA=t.IDCLIENTE).first()
+        empleado = db.query(Cuenta).filter_by(IDCUENTA=t.IDEMPLEADO).first() if t.IDEMPLEADO else None
+
+        resultados.append({
+            "idticket": t.IDTICKET,
+            "descripcion": t.DESCRTICKET,
+            "nivel": t.NIVEL,
+            "fecha_creacion": t.FCHCREACION,
+            "estado_ticket": t.ESTADOTICKET,
+            "fecha_solucion": t.FCHSOLUCION,
+            "cliente": {
+                "id": cliente.IDCUENTA,
+                "nombre": cliente.NOMBRECUENTA,
+                "correo": cliente.CORREO
+            },
+            "empleado_asignado": {
+                "id": empleado.IDCUENTA,
+                "nombre": empleado.NOMBRECUENTA,
+                "correo": empleado.CORREO
+            } if empleado else None
+        })
+
+    return resultados
