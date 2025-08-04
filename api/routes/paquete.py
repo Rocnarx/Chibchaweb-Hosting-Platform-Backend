@@ -4,7 +4,7 @@ from api.DAO.database import SessionLocal
 from api.DTO.models import CrearPaqueteRequest, PaqueteResponse, InfoPaqueteResponse, MiPaqueteResponse, ComprarPaqueteRequest, ModificarPaqueteRequest, EliminarPaqueteRequest, ItemFacturaResponse, ActualizarItemFacturaRequest
 from api.ORM.models_sqlalchemy import InfoPaqueteHosting, PaqueteHosting, MetodoPagoCuenta, FacturaPaquete, ItemPaquete
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date 
 import re
 import random 
 
@@ -82,22 +82,24 @@ def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends
     if not metodo:
         raise HTTPException(status_code=404, detail="Método de pago no encontrado para la cuenta")
 
-    # Buscar factura asociada al método de pago
-    factura = db.query(FacturaPaquete).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).first()
+    # Buscar factura activa (estado = 1)
+    factura = db.query(FacturaPaquete).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA, ESTADO=1).first()
     if not factura:
-        raise HTTPException(status_code=404, detail="Factura de paquete no encontrada")
+        raise HTTPException(status_code=404, detail="Factura de paquete activa no encontrada")
 
-    # Verificar si hay un paquete asociado a la factura
+    # Verificar vencimiento
+    if factura.FCHVENCIMIENTO < date.today():
+        factura.ESTADO = 2  # Cambiar a vencido
+        db.commit()
+        raise HTTPException(status_code=400, detail="El paquete ha vencido. Estado actualizado a vencido.")
+
+    # Verificar existencia de paquete y su info
     paquete = factura.paquete_hosting
-    if not paquete:
-        raise HTTPException(status_code=404, detail="La factura no tiene un paquete asociado")
+    if not paquete or not paquete.infopaquete:
+        raise HTTPException(status_code=404, detail="Información del paquete incompleta")
 
-    # Verificar si el paquete tiene info asociada
     info = paquete.infopaquete
-    if not info:
-        raise HTTPException(status_code=404, detail="Información del paquete no encontrada")
 
-    # Construir la respuesta
     return MiPaqueteResponse(
         idfacturapaquete=factura.IDFACTURAPAQUETE,
         idinfopaquetehosting=info.IDINFOPAQUETEHOSTING,
