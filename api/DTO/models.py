@@ -307,7 +307,7 @@ class ModificarPaqueteRequest(BaseModel):
     gbenssd: Optional[int] = None
     correos: Optional[int] = None
     certificadosslhttps: Optional[int] = None
-
+#ASDASD
 class EliminarPaqueteRequest(BaseModel):
     idinfopaquetehosting: int
 
