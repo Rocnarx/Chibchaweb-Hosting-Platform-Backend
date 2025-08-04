@@ -77,36 +77,47 @@ def obtener_paquetes(db: Session = Depends(get_db)):
 
 @router.get("/MiPaquete", response_model=MiPaqueteResponse)
 def obtener_paquete_por_cuenta(idcuenta: str = Query(...), db: Session = Depends(get_db)):
-    metodo = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=idcuenta).first()
+    # Buscar método de pago activo de la cuenta
+    metodo = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=idcuenta, ACTIVOMETODOPAGOCUENTA=True).first()
     if not metodo:
         raise HTTPException(status_code=404, detail="Método de pago no encontrado para la cuenta")
 
+    # Buscar factura asociada al método de pago
     factura = db.query(FacturaPaquete).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).first()
     if not factura:
         raise HTTPException(status_code=404, detail="Factura de paquete no encontrada")
 
+    # Verificar si hay un paquete asociado a la factura
     paquete = factura.paquete_hosting
-    info = paquete.infopaquete
+    if not paquete:
+        raise HTTPException(status_code=404, detail="La factura no tiene un paquete asociado")
 
+    # Verificar si el paquete tiene info asociada
+    info = paquete.infopaquete
+    if not info:
+        raise HTTPException(status_code=404, detail="Información del paquete no encontrada")
+
+    # Construir la respuesta
     return MiPaqueteResponse(
-    idfacturapaquete=factura.IDFACTURAPAQUETE,
-    idinfopaquetehosting=info.IDINFOPAQUETEHOSTING,
-    idpaquetehosting=paquete.IDPAQUETEHOSTING,  # ← 🔥 este es el nuevo campo
-    fchpago=factura.FCHPAGO,
-    fchvencimiento=factura.FCHVENCIMIENTO,
-    estado=factura.ESTADO,
-    valorfp=float(factura.VALORFP),
-    preciopaquete=float(paquete.PRECIOPAQUETE),
-    periodicidad=paquete.PERIODICIDAD,
-    info=InfoPaqueteResponse(
-        cantidadsitios=int(info.CANTIDADSITIOS),
-        nombrepaquetehosting=info.NOMBREPAQUETEHOSTING,
-        bd=int(info.BD),
-        gbenssd=int(info.GBENSSD),
-        correos=int(info.CORREOS),
-        certificadosslhttps=int(info.CERTIFICADOSSSLHTTPS)
+        idfacturapaquete=factura.IDFACTURAPAQUETE,
+        idinfopaquetehosting=info.IDINFOPAQUETEHOSTING,
+        idpaquetehosting=paquete.IDPAQUETEHOSTING,
+        fchpago=factura.FCHPAGO,
+        fchvencimiento=factura.FCHVENCIMIENTO,
+        estado=factura.ESTADO,
+        valorfp=float(factura.VALORFP),
+        preciopaquete=float(paquete.PRECIOPAQUETE),
+        periodicidad=paquete.PERIODICIDAD,
+        info=InfoPaqueteResponse(
+            cantidadsitios=int(info.CANTIDADSITIOS),
+            nombrepaquetehosting=info.NOMBREPAQUETEHOSTING,
+            bd=int(info.BD),
+            gbenssd=int(info.GBENSSD),
+            correos=int(info.CORREOS),
+            certificadosslhttps=int(info.CERTIFICADOSSSLHTTPS)
+        )
     )
-)
+
 
 
 def generar_items_para_factura(idfacturapaquete: int, db: Session):
