@@ -275,11 +275,11 @@ def modificar_paquete(data: ModificarPaqueteRequest, db: Session = Depends(get_d
 
 @router.delete("/EliminarPaquete")
 def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)):
-    info = db.query(InfoPaqueteHosting).filter_by(NOMBREPAQUETEHOSTING=data.nombrepaquetehosting).first()
+    info = db.query(InfoPaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).first()
     if not info:
-        raise HTTPException(status_code=404, detail="InfoPaquete no encontrado con ese nombre")
+        raise HTTPException(status_code=404, detail="InfoPaquete no encontrado")
 
-    paquetes = db.query(PaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=info.IDINFOPAQUETEHOSTING).all()
+    paquetes = db.query(PaqueteHosting).filter_by(IDINFOPAQUETEHOSTING=data.idinfopaquetehosting).all()
 
     # Desvincular facturas (poner NULL en IDPAQUETEHOSTING)
     for paquete in paquetes:
@@ -295,9 +295,7 @@ def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)
 
     db.commit()
 
-    return {
-        "mensaje": f"InfoPaquete '{data.nombrepaquetehosting}' y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."
-    }
+    return {"mensaje": f"InfoPaquete {data.idinfopaquetehosting} y {len(paquetes)} paquete(s) eliminados correctamente, manteniendo historial de facturas."}
 
 @router.get("/ItemsFactura", response_model=List[ItemFacturaResponse])
 def obtener_items_factura(
