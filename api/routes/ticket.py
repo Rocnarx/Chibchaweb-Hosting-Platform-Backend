@@ -303,3 +303,45 @@ def ver_tickets_por_estado_y_nivel(
         })
 
     return resultados
+
+
+
+@router.get("/mis-tickets-empleado")
+def obtener_tickets_asignados(
+    idempleado: str = Query(..., description="ID del empleado"),
+    db: Session = Depends(get_db)
+):
+    empleado = db.query(Cuenta).filter_by(IDCUENTA=idempleado).first()
+    if not empleado:
+        raise HTTPException(status_code=404, detail=f"Empleado {idempleado} no encontrado")
+
+    tickets = db.query(Ticket).filter_by(IDEMPLEADO=idempleado).all()
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No se encontraron tickets asignados a este empleado")
+
+    resultados = []
+    for t in tickets:
+        cliente = db.query(Cuenta).filter_by(IDCUENTA=t.IDCLIENTE).first()
+
+        resultados.append({
+            "id_ticket": t.IDTICKET,
+            "descripcion": t.DESCRTICKET,
+            "nivel": t.NIVEL,
+            "estado": t.ESTADOTICKET,
+            "fecha_creacion": t.FCHCREACION,
+            "fecha_solucion": t.FCHSOLUCION,
+            "cliente": {
+                "id": cliente.IDCUENTA,
+                "nombre": cliente.NOMBRECUENTA,
+                "correo": cliente.CORREO
+            }
+        })
+
+    return {
+        "empleado": {
+            "id": empleado.IDCUENTA,
+            "nombre": empleado.NOMBRECUENTA,
+            "correo": empleado.CORREO
+        },
+        "tickets_asignados": resultados
+    }
