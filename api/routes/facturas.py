@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.ORM.models_sqlalchemy import Factura, Cuenta, Carrito, CarritoDominio, Dominio, MetodoPagoCuenta, FacturaPaquete
+from api.ORM.models_sqlalchemy import Factura, Cuenta, Carrito, CarritoDominio, Dominio, MetodoPagoCuenta, FacturaPaquete,Plan
 import smtplib
 from email.message import EmailMessage
 from reportlab.pdfgen import canvas
@@ -10,6 +10,9 @@ from io import BytesIO
 from decimal import Decimal
 import os
 from reportlab.lib.utils import ImageReader
+from sqlalchemy import func
+from datetime import date, timedelta
+
 
 router = APIRouter()
 
@@ -213,4 +216,125 @@ def obtener_facturas_por_cuenta(
     return {
         "idcuenta": idcuenta,
         "facturas": facturas
+    }
+
+@router.get("/reporte-admin")
+def reporte_admin(db: Session = Depends(get_db)):
+    hoy = date.today()
+    hace_un_mes = hoy - timedelta(days=30)
+
+    # 1. Comisiones entregadas a distribuidores
+    distribuidores = db.query(Cuenta).filter_by(IDTIPOCUENTA=2).all()
+    total_comisiones = 0.0
+    compras_distribuidor = {}
+
+    for dist in distribuidores:
+        plan = db.query(Plan).filter_by(IDPLAN=dist.IDPLAN).first()
+        comision = float(plan.COMISION) if plan else 0.0
+        ahorro = 0.0
+
+        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=dist.IDCUENTA).all()
+        for metodo in metodos:
+            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+            for carrito in carritos:
+                dominios = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+                for d in dominios:
+                    dom = db.query(Dominio).filter_by(IDDOMINIO=d.IDDOMINIO).first()
+                    if dom:
+                        ahorro += float(dom.PRECIODOMINIO) * (comision / 100)
+
+        total_comisiones += ahorro
+        compras_distribuidor[dist.NOMBRECUENTA] = compras_distribuidor.get(dist.NOMBRECUENTA, 0) + ahorro
+
+    # 2. Paquetes vendidos a clientes
+    total_paquetes_vendidos = db.query(FacturaPaquete).count()
+
+    # 3. Dominios vendidos a clientes (TIPOCUENTA = 1)
+    clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).all()
+    dominios_clientes = 0
+    dominios_distribuidores = 0
+    dinero_dom_clientes = 0.0
+    dinero_dom_distribuidores = 0.0
+
+    for c in clientes:
+        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=c.IDCUENTA).all()
+        for metodo in metodos:
+            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+            for carrito in carritos:
+                items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+                for item in items:
+                    dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
+                    if dom:
+                        dominios_clientes += 1
+                        dinero_dom_clientes += float(dom.PRECIODOMINIO)
+
+    for d in distribuidores:
+        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=d.IDCUENTA).all()
+        for metodo in metodos:
+            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+            for carrito in carritos:
+                items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+                for item in items:
+                    dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
+                    if dom:
+                        dominios_distribuidores += 1
+                        dinero_dom_distribuidores += float(dom.PRECIODOMINIO)
+
+    total_dominios = dominios_clientes + dominios_distribuidores
+    total_dinero_dominios = dinero_dom_clientes + dinero_dom_distribuidores
+
+    # 4. Dinero adquirido por paquetes
+    dinero_paquetes = db.query(func.sum(FacturaPaquete.VALORFP)).scalar() or 0.0
+
+    # 5. Dinero adquirido en el último mes
+    dinero_ultimo_mes = db.query(func.sum(FacturaPaquete.VALORFP))\
+        .filter(FacturaPaquete.FCHPAGO >= hace_un_mes)\
+        .scalar() or 0.0
+
+    # 6. Dinero total
+    dinero_total = float(total_dinero_dominios) + float(dinero_paquetes)
+
+    # 7. Total clientes registrados
+    total_clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).count()
+
+    # 8. Clientes que han comprado algo
+    clientes_con_compras = db.query(Cuenta.IDCUENTA).filter_by(IDTIPOCUENTA=1)\
+        .join(MetodoPagoCuenta, MetodoPagoCuenta.IDCUENTA == Cuenta.IDCUENTA)\
+        .join(Carrito, Carrito.IDMETODOPAGOCUENTA == MetodoPagoCuenta.IDMETODOPAGOCUENTA)\
+        .join(CarritoDominio, CarritoDominio.IDCARRITO == Carrito.IDCARRITO)\
+        .distinct().count()
+
+    # 9. Distribuidor que más y menos ha comprado (por valor)
+    if len(compras_distribuidor) >= 2:
+        distribuidor_mas = max(compras_distribuidor, key=compras_distribuidor.get)
+        distribuidor_menos = min(compras_distribuidor, key=compras_distribuidor.get)
+    elif len(compras_distribuidor) == 1:
+        distribuidor_mas = distribuidor_menos = next(iter(compras_distribuidor))
+    else:
+        distribuidor_mas = distribuidor_menos = None
+
+
+    return {
+        "comisiones_distribuidores": round(total_comisiones, 2),
+        "ventas": {
+            "paquetes_vendidos": total_paquetes_vendidos,
+            "dominios_a_clientes": dominios_clientes,
+            "dominios_a_distribuidores": dominios_distribuidores,
+            "total_dominios_vendidos": total_dominios
+        },
+        "ingresos": {
+            "por_dominios_distribuidores": round(dinero_dom_distribuidores, 2),
+            "por_dominios_clientes": round(dinero_dom_clientes, 2),
+            "por_venta_paquetes": round(dinero_paquetes, 2),
+            "total_ultimo_mes": round(dinero_ultimo_mes, 2),
+            "total_general": round(dinero_total, 2)
+        },
+        "clientes": {
+            "total_registrados": total_clientes,
+            "total_que_compraron": clientes_con_compras
+        },
+        "distribuidores": {
+            "mas_compro": distribuidor_mas,
+            "menos_compro": distribuidor_menos
+        }
     }
