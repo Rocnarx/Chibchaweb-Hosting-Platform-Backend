@@ -324,3 +324,6 @@ class TraduccionRequest(BaseModel):
     idioma: str
     clave: str
     valor: str
+
+class GenerarDominiosRequest(BaseModel):
+    descripcion: str

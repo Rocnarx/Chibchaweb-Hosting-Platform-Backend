@@ -125,3 +125,27 @@ def agregar_respuesta_a_historial(ticket_id: str, mensaje: str, autor: str):
 
     return nueva_respuesta
     
+def generar_dominios_desde_descripcion(descripcion: str, modelo: str = "openrouter/horizon-beta") -> list[str]:
+    prompt = f"""
+Genera 10 nombres de dominio únicos, creativos y disponibles para un negocio descrito como:
+
+"{descripcion}"
+
+Requisitos:
+- Solo incluye el nombre (sin www. ni https).
+- Todos deben estar en formato .com
+- Evita usar caracteres especiales o espacios.
+- Haz que suenen profesionales, fáciles de recordar y relacionados al negocio.
+- No expliques, solo devuelve la lista (uno por línea).
+    """
+
+    response = client.chat.completions.create(
+        model=modelo,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.1
+    )
+
+    texto = response.choices[0].message.content.strip()
+    # Separa por líneas, limpia vacíos y devuelve lista
+    dominios = [line.strip().lower() for line in texto.splitlines() if line.strip()]
+    return dominios

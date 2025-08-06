@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.DTO.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest,TransferenciaDominioRequest, DominioAdquiridoRequest
+from api.DTO.models import DomainRequest, DomainStatus, AlternativesResponse, DominioCreate, DominioEnCarrito, ActualizarOcupadoDominioRequestList, AgregarDominioRequest,TransferenciaDominioRequest,GenerarDominiosRequest
 from api.ORM.models_sqlalchemy import Dominio, CarritoDominio, Cuenta, MetodoPagoCuenta, Carrito, Factura
 from sqlalchemy.orm import Session
 from ..DAO.database import SessionLocal
@@ -13,6 +13,7 @@ import os
 from io import BytesIO
 import uuid
 from datetime import timedelta, date
+from api.AIGEN.AI_utils import generar_dominios_desde_descripcion
 router = APIRouter()
 
 
@@ -408,3 +409,19 @@ def obtener_vigencia_dominios(idcuenta: str = Query(...), db: Session = Depends(
         })
 
     return dominios_con_vigencia
+
+
+@router.post("/generar-dominiosIA")
+def generar_dominios_con_IA(data: GenerarDominiosRequest):
+    if not data.descripcion or len(data.descripcion) < 5:
+        raise HTTPException(status_code=400, detail="Descripción demasiado corta")
+
+    dominios = generar_dominios_desde_descripcion(data.descripcion)
+
+    if not dominios:
+        raise HTTPException(status_code=500, detail="No se pudieron generar dominios")
+
+    return {
+        "descripcion": data.descripcion,
+        "dominios_generados": dominios
+    }
