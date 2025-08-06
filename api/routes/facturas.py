@@ -218,123 +218,254 @@ def obtener_facturas_por_cuenta(
         "facturas": facturas
     }
 
-@router.get("/reporte-admin")
-def reporte_admin(db: Session = Depends(get_db)):
-    hoy = date.today()
-    hace_un_mes = hoy - timedelta(days=30)
 
-    # 1. Comisiones entregadas a distribuidores
+@router.get("/reporte/admin/comisiones-distribuidores")
+def comisiones_distribuidores(db: Session = Depends(get_db)):
     distribuidores = db.query(Cuenta).filter_by(IDTIPOCUENTA=2).all()
-    total_comisiones = 0.0
-    compras_distribuidor = {}
+    total = 0.0
 
     for dist in distribuidores:
         plan = db.query(Plan).filter_by(IDPLAN=dist.IDPLAN).first()
-        comision = float(plan.COMISION) if plan else 0.0
-        ahorro = 0.0
+        if not plan:
+            continue
+        comision = float(plan.COMISION)
 
         metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=dist.IDCUENTA).all()
         for metodo in metodos:
-            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
-            for carrito in carritos:
-                dominios = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
-                for d in dominios:
-                    dom = db.query(Dominio).filter_by(IDDOMINIO=d.IDDOMINIO).first()
-                    if dom:
-                        ahorro += float(dom.PRECIODOMINIO) * (comision / 100)
+            carrito_ids = db.query(Carrito.IDCARRITO).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+            carrito_ids = [c[0] for c in carrito_ids]
+            dominios = db.query(Dominio.PRECIODOMINIO).join(CarritoDominio)\
+                        .filter(CarritoDominio.IDCARRITO.in_(carrito_ids)).all()
+            for d in dominios:
+                total += float(d[0]) * (comision / 100)
 
-        total_comisiones += ahorro
-        compras_distribuidor[dist.NOMBRECUENTA] = compras_distribuidor.get(dist.NOMBRECUENTA, 0) + ahorro
+    return {"comisiones_distribuidores": round(total, 2)}
 
-    # 2. Paquetes vendidos a clientes
-    total_paquetes_vendidos = db.query(FacturaPaquete).count()
 
-    # 3. Dominios vendidos a clientes (TIPOCUENTA = 1)
+@router.get("/reporte/admin/ventas")
+def ventas_admin(db: Session = Depends(get_db)):
+    total_paquetes = db.query(FacturaPaquete).count()
+
     clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).all()
-    dominios_clientes = 0
-    dominios_distribuidores = 0
-    dinero_dom_clientes = 0.0
-    dinero_dom_distribuidores = 0.0
+    distros = db.query(Cuenta).filter_by(IDTIPOCUENTA=2).all()
 
-    for c in clientes:
-        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=c.IDCUENTA).all()
-        for metodo in metodos:
-            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
-            for carrito in carritos:
-                items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
-                for item in items:
-                    dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
-                    if dom:
-                        dominios_clientes += 1
-                        dinero_dom_clientes += float(dom.PRECIODOMINIO)
+    dom_clientes = 0
+    dom_distribuidores = 0
 
-    for d in distribuidores:
-        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=d.IDCUENTA).all()
-        for metodo in metodos:
-            carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
-            for carrito in carritos:
-                items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
-                for item in items:
-                    dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
-                    if dom:
-                        dominios_distribuidores += 1
-                        dinero_dom_distribuidores += float(dom.PRECIODOMINIO)
+    for grupo, counter in [(clientes, 'cliente'), (distros, 'distribuidor')]:
+        for cuenta in grupo:
+            metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=cuenta.IDCUENTA).all()
+            for metodo in metodos:
+                carrito_ids = db.query(Carrito.IDCARRITO).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+                carrito_ids = [c[0] for c in carrito_ids]
+                cantidad = db.query(CarritoDominio).filter(CarritoDominio.IDCARRITO.in_(carrito_ids)).count()
+                if counter == 'cliente':
+                    dom_clientes += cantidad
+                else:
+                    dom_distribuidores += cantidad
 
-    total_dominios = dominios_clientes + dominios_distribuidores
-    total_dinero_dominios = dinero_dom_clientes + dinero_dom_distribuidores
+    return {
+        "paquetes_vendidos": total_paquetes,
+        "dominios_a_clientes": dom_clientes,
+        "dominios_a_distribuidores": dom_distribuidores,
+        "total_dominios_vendidos": dom_clientes + dom_distribuidores
+    }
 
-    # 4. Dinero adquirido por paquetes
-    dinero_paquetes = db.query(func.sum(FacturaPaquete.VALORFP)).scalar() or 0.0
 
-    # 5. Dinero adquirido en el último mes
-    dinero_ultimo_mes = db.query(func.sum(FacturaPaquete.VALORFP))\
-        .filter(FacturaPaquete.FCHPAGO >= hace_un_mes)\
-        .scalar() or 0.0
+@router.get("/reporte/admin/ingresos")
+def ingresos_admin(db: Session = Depends(get_db)):
+    from datetime import date, timedelta
+    hoy = date.today()
+    hace_un_mes = hoy - timedelta(days=30)
 
-    # 6. Dinero total
-    dinero_total = float(total_dinero_dominios) + float(dinero_paquetes)
+    dom_clientes = 0.0
+    dom_distros = 0.0
 
-    # 7. Total clientes registrados
-    total_clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).count()
+    for tipo, filtro in [("cliente", 1), ("distribuidor", 2)]:
+        cuentas = db.query(Cuenta).filter_by(IDTIPOCUENTA=filtro).all()
+        for cuenta in cuentas:
+            metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=cuenta.IDCUENTA).all()
+            for metodo in metodos:
+                carrito_ids = db.query(Carrito.IDCARRITO).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+                carrito_ids = [c[0] for c in carrito_ids]
+                dominios = db.query(Dominio.PRECIODOMINIO).join(CarritoDominio)\
+                             .filter(CarritoDominio.IDCARRITO.in_(carrito_ids)).all()
+                suma = sum(float(d[0]) for d in dominios)
+                if tipo == "cliente":
+                    dom_clientes += suma
+                else:
+                    dom_distros += suma
 
-    # 8. Clientes que han comprado algo
-    clientes_con_compras = db.query(Cuenta.IDCUENTA).filter_by(IDTIPOCUENTA=1)\
+    total_dominios = dom_clientes + dom_distros
+    total_paquetes = db.query(func.sum(FacturaPaquete.VALORFP)).scalar() or 0.0
+    ult_mes = db.query(func.sum(FacturaPaquete.VALORFP))\
+        .filter(FacturaPaquete.FCHPAGO >= hace_un_mes).scalar() or 0.0
+
+    return {
+        "por_dominios_distribuidores": round(dom_distros, 2),
+        "por_dominios_clientes": round(dom_clientes, 2),
+        "por_venta_paquetes": float(total_paquetes),
+        "total_ultimo_mes": float(ult_mes),
+        "total_general": round(float(total_paquetes) + float(total_dominios), 2)
+
+    }
+
+@router.get("/reporte/admin/usuarios")
+def usuarios_admin(db: Session = Depends(get_db)):
+    total = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).count()
+
+    con_compras = db.query(Cuenta.IDCUENTA)\
+        .filter_by(IDTIPOCUENTA=1)\
         .join(MetodoPagoCuenta, MetodoPagoCuenta.IDCUENTA == Cuenta.IDCUENTA)\
         .join(Carrito, Carrito.IDMETODOPAGOCUENTA == MetodoPagoCuenta.IDMETODOPAGOCUENTA)\
         .join(CarritoDominio, CarritoDominio.IDCARRITO == Carrito.IDCARRITO)\
         .distinct().count()
 
-    # 9. Distribuidor que más y menos ha comprado (por valor)
-    if len(compras_distribuidor) >= 2:
-        distribuidor_mas = max(compras_distribuidor, key=compras_distribuidor.get)
-        distribuidor_menos = min(compras_distribuidor, key=compras_distribuidor.get)
-    elif len(compras_distribuidor) == 1:
-        distribuidor_mas = distribuidor_menos = next(iter(compras_distribuidor))
-    else:
-        distribuidor_mas = distribuidor_menos = None
+    distros = db.query(Cuenta).filter_by(IDTIPOCUENTA=2).all()
+    compra_valores = {}
 
+    for d in distros:
+        metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=d.IDCUENTA).all()
+        for metodo in metodos:
+            carrito_ids = db.query(Carrito.IDCARRITO).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+            carrito_ids = [c[0] for c in carrito_ids]
+            dominios = db.query(Dominio.PRECIODOMINIO).join(CarritoDominio)\
+                         .filter(CarritoDominio.IDCARRITO.in_(carrito_ids)).all()
+            total_compras = sum(float(d[0]) for d in dominios)
+            compra_valores[d.NOMBRECUENTA] = compra_valores.get(d.NOMBRECUENTA, 0.0) + total_compras
+
+    if len(compra_valores) >= 2:
+        mas = max(compra_valores, key=compra_valores.get)
+        menos = min(compra_valores, key=compra_valores.get)
+    elif len(compra_valores) == 1:
+        mas = menos = next(iter(compra_valores))
+    else:
+        mas = menos = None
 
     return {
-        "comisiones_distribuidores": round(total_comisiones, 2),
-        "ventas": {
-            "paquetes_vendidos": total_paquetes_vendidos,
-            "dominios_a_clientes": dominios_clientes,
-            "dominios_a_distribuidores": dominios_distribuidores,
-            "total_dominios_vendidos": total_dominios
-        },
-        "ingresos": {
-            "por_dominios_distribuidores": round(dinero_dom_distribuidores, 2),
-            "por_dominios_clientes": round(dinero_dom_clientes, 2),
-            "por_venta_paquetes": round(dinero_paquetes, 2),
-            "total_ultimo_mes": round(dinero_ultimo_mes, 2),
-            "total_general": round(dinero_total, 2)
-        },
-        "clientes": {
-            "total_registrados": total_clientes,
-            "total_que_compraron": clientes_con_compras
-        },
-        "distribuidores": {
-            "mas_compro": distribuidor_mas,
-            "menos_compro": distribuidor_menos
-        }
+        "total_clientes_registrados": total,
+        "total_clientes_con_compras": con_compras,
+        "distribuidor_mas_compro": mas,
+        "distribuidor_menos_compro": menos
     }
+
+# `@router.get("/reporte-admin")
+# def reporte_admin(db: Session = Depends(get_db)):
+#     hoy = date.today()
+#     hace_un_mes = hoy - timedelta(days=30)
+
+#     # 1. Comisiones entregadas a distribuidores
+#     distribuidores = db.query(Cuenta).filter_by(IDTIPOCUENTA=2).all()
+#     total_comisiones = 0.0
+#     compras_distribuidor = {}
+
+#     for dist in distribuidores:
+#         plan = db.query(Plan).filter_by(IDPLAN=dist.IDPLAN).first()
+#         comision = float(plan.COMISION) if plan else 0.0
+#         ahorro = 0.0
+
+#         metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=dist.IDCUENTA).all()
+#         for metodo in metodos:
+#             carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+#             for carrito in carritos:
+#                 dominios = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+#                 for d in dominios:
+#                     dom = db.query(Dominio).filter_by(IDDOMINIO=d.IDDOMINIO).first()
+#                     if dom:
+#                         ahorro += float(dom.PRECIODOMINIO) * (comision / 100)
+
+#         total_comisiones += ahorro
+#         compras_distribuidor[dist.NOMBRECUENTA] = compras_distribuidor.get(dist.NOMBRECUENTA, 0) + ahorro
+
+#     # 2. Paquetes vendidos a clientes
+#     total_paquetes_vendidos = db.query(FacturaPaquete).count()
+
+#     # 3. Dominios vendidos a clientes (TIPOCUENTA = 1)
+#     clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).all()
+#     dominios_clientes = 0
+#     dominios_distribuidores = 0
+#     dinero_dom_clientes = 0.0
+#     dinero_dom_distribuidores = 0.0
+
+#     for c in clientes:
+#         metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=c.IDCUENTA).all()
+#         for metodo in metodos:
+#             carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+#             for carrito in carritos:
+#                 items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+#                 for item in items:
+#                     dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
+#                     if dom:
+#                         dominios_clientes += 1
+#                         dinero_dom_clientes += float(dom.PRECIODOMINIO)
+
+#     for d in distribuidores:
+#         metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=d.IDCUENTA).all()
+#         for metodo in metodos:
+#             carritos = db.query(Carrito).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+#             for carrito in carritos:
+#                 items = db.query(CarritoDominio).filter_by(IDCARRITO=carrito.IDCARRITO).all()
+#                 for item in items:
+#                     dom = db.query(Dominio).filter_by(IDDOMINIO=item.IDDOMINIO).first()
+#                     if dom:
+#                         dominios_distribuidores += 1
+#                         dinero_dom_distribuidores += float(dom.PRECIODOMINIO)
+
+#     total_dominios = dominios_clientes + dominios_distribuidores
+#     total_dinero_dominios = dinero_dom_clientes + dinero_dom_distribuidores
+
+#     # 4. Dinero adquirido por paquetes
+#     dinero_paquetes = db.query(func.sum(FacturaPaquete.VALORFP)).scalar() or 0.0
+
+#     # 5. Dinero adquirido en el último mes
+#     dinero_ultimo_mes = db.query(func.sum(FacturaPaquete.VALORFP))\
+#         .filter(FacturaPaquete.FCHPAGO >= hace_un_mes)\
+#         .scalar() or 0.0
+
+#     # 6. Dinero total
+#     dinero_total = float(total_dinero_dominios) + float(dinero_paquetes)
+
+#     # 7. Total clientes registrados
+#     total_clientes = db.query(Cuenta).filter_by(IDTIPOCUENTA=1).count()
+
+#     # 8. Clientes que han comprado algo
+#     clientes_con_compras = db.query(Cuenta.IDCUENTA).filter_by(IDTIPOCUENTA=1)\
+#         .join(MetodoPagoCuenta, MetodoPagoCuenta.IDCUENTA == Cuenta.IDCUENTA)\
+#         .join(Carrito, Carrito.IDMETODOPAGOCUENTA == MetodoPagoCuenta.IDMETODOPAGOCUENTA)\
+#         .join(CarritoDominio, CarritoDominio.IDCARRITO == Carrito.IDCARRITO)\
+#         .distinct().count()
+
+#     # 9. Distribuidor que más y menos ha comprado (por valor)
+#     if len(compras_distribuidor) >= 2:
+#         distribuidor_mas = max(compras_distribuidor, key=compras_distribuidor.get)
+#         distribuidor_menos = min(compras_distribuidor, key=compras_distribuidor.get)
+#     elif len(compras_distribuidor) == 1:
+#         distribuidor_mas = distribuidor_menos = next(iter(compras_distribuidor))
+#     else:
+#         distribuidor_mas = distribuidor_menos = None
+
+
+#     return {
+#         "comisiones_distribuidores": round(total_comisiones, 2),
+#         "ventas": {
+#             "paquetes_vendidos": total_paquetes_vendidos,
+#             "dominios_a_clientes": dominios_clientes,
+#             "dominios_a_distribuidores": dominios_distribuidores,
+#             "total_dominios_vendidos": total_dominios
+#         },
+#         "ingresos": {
+#             "por_dominios_distribuidores": round(dinero_dom_distribuidores, 2),
+#             "por_dominios_clientes": round(dinero_dom_clientes, 2),
+#             "por_venta_paquetes": round(dinero_paquetes, 2),
+#             "total_ultimo_mes": round(dinero_ultimo_mes, 2),
+#             "total_general": round(dinero_total, 2)
+#         },
+#         "clientes": {
+#             "total_registrados": total_clientes,
+#             "total_que_compraron": clientes_con_compras
+#         },
+#         "distribuidores": {
+#             "mas_compro": distribuidor_mas,
+#             "menos_compro": distribuidor_menos
+#         }
+#     }`
