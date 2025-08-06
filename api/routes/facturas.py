@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
-from api.ORM.models_sqlalchemy import Factura, Cuenta, Carrito, CarritoDominio, Dominio, Plan
+from api.ORM.models_sqlalchemy import Factura, Cuenta, Carrito, CarritoDominio, Dominio, MetodoPagoCuenta, FacturaPaquete
 import smtplib
 from email.message import EmailMessage
 from reportlab.pdfgen import canvas
@@ -174,3 +174,43 @@ Gracias por tu preferencia.
         raise HTTPException(status_code=500, detail=f"Error al enviar el correo: {str(e)}")
 
     return {"mensaje": f"Factura enviada exitosamente a {cuenta.CORREO}"}
+
+
+@router.get("/facturas-por-cuenta")
+def obtener_facturas_por_cuenta(
+    idcuenta: str = Query(..., description="ID de la cuenta del cliente"),
+    db: Session = Depends(get_db)
+):
+    cuenta = db.query(Cuenta).filter_by(IDCUENTA=idcuenta).first()
+    if not cuenta:
+        raise HTTPException(status_code=404, detail=f"Cuenta {idcuenta} no encontrada")
+
+    metodos = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=idcuenta).all()
+    if not metodos:
+        raise HTTPException(status_code=404, detail="No se encontraron métodos de pago para esta cuenta")
+
+    facturas = []
+    for metodo in metodos:
+        facturas_metodo = db.query(FacturaPaquete).filter_by(IDMETODOPAGOCUENTA=metodo.IDMETODOPAGOCUENTA).all()
+        for f in facturas_metodo:
+            paquete = f.paquete_hosting
+            facturas.append({
+                "idfacturapaquete": f.IDFACTURAPAQUETE,
+                "fchpago": f.FCHPAGO,
+                "fchvencimiento": f.FCHVENCIMIENTO,
+                "estado": f.ESTADO,
+                "valor": float(f.VALORFP),
+                "paquete": {
+                    "idpaquetehosting": paquete.IDPAQUETEHOSTING if paquete else None,
+                    "preciopaquete": float(paquete.PRECIOPAQUETE) if paquete else None,
+                    "periodicidad": paquete.PERIODICIDAD if paquete else None
+                } if paquete else None
+            })
+
+    if not facturas:
+        raise HTTPException(status_code=404, detail="No se encontraron facturas para esta cuenta")
+
+    return {
+        "idcuenta": idcuenta,
+        "facturas": facturas
+    }

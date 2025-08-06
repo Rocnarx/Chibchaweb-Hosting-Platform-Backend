@@ -301,19 +301,13 @@ def eliminar_paquete(data: EliminarPaqueteRequest, db: Session = Depends(get_db)
 
 @router.get("/ItemsFactura", response_model=List[ItemFacturaResponse])
 def obtener_items_factura(
-    idfacturapaquete: int = Query(...),
-    descripcion: Optional[str] = Query(None),
+    idfacturapaquete: int = Query(..., description="ID de la factura del paquete"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(ItemPaquete).filter_by(IDFACTURAPAQUETE=idfacturapaquete)
-
-    if descripcion:
-        query = query.filter(ItemPaquete.DESCRIPCION == descripcion)
-
-    items = query.all()
+    items = db.query(ItemPaquete).filter_by(IDFACTURAPAQUETE=idfacturapaquete).all()
 
     if not items:
-        raise HTTPException(status_code=404, detail="No hay ítems que coincidan con los filtros")
+        raise HTTPException(status_code=404, detail="No se encontraron ítems para esta factura")
 
     return items
 
