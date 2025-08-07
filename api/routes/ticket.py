@@ -23,7 +23,7 @@ def crear_ticket(data: CrearTicketRequest, db: Session = Depends(get_db)):
     if not cuenta:
         raise HTTPException(status_code=404, detail="Cuenta no encontrada")
 
-    modelo = "openrouter/horizon-beta"
+    modelo = "openai/gpt-oss-20b:free"
     categoria = clasificar_correo(data.descrip_ticket, modelo)
 
     nuevo_ticket = Ticket(

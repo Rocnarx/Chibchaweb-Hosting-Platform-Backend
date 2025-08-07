@@ -15,7 +15,7 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 from sqlalchemy.exc import IntegrityError
-
+from sqlalchemy.exc import SQLAlchemyError
 router = APIRouter()
 
 def get_db():
@@ -53,7 +53,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "direccion": cuenta.DIRECCION
     }
 
-from sqlalchemy.exc import SQLAlchemyError
+
 
 def generar_token_corto(longitud=6):
     caracteres = string.ascii_uppercase + string.digits  # A-Z y 0-9

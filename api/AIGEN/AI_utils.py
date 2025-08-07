@@ -125,7 +125,7 @@ def agregar_respuesta_a_historial(ticket_id: str, mensaje: str, autor: str):
 
     return nueva_respuesta
     
-def generar_dominios_desde_descripcion(descripcion: str, modelo: str = "openrouter/horizon-beta") -> list[str]:
+def generar_dominios_desde_descripcion(descripcion: str, modelo: str = "openai/gpt-oss-20b:free") -> list[str]:
     prompt = f"""
 Genera 10 nombres de dominio únicos, creativos y disponibles para un negocio descrito como:
 
