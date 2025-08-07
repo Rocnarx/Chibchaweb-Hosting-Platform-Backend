@@ -327,3 +327,16 @@ class TraduccionRequest(BaseModel):
 
 class GenerarDominiosRequest(BaseModel):
     descripcion: str
+
+class CambiarContrasenaRequest(BaseModel):
+    idcuenta: str
+    contrasena_actual: str
+    contrasena_nueva: str
+
+class SolicitarRecuperacionRequest(BaseModel):
+    correo: str
+
+class RestablecerContrasenaRequest(BaseModel):
+    correo: str
+    token: str
+    nueva_contrasena: str

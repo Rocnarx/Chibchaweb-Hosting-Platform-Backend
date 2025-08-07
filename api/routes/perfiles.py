@@ -5,7 +5,7 @@ import random
 from sqlalchemy.orm import Session
 from api.DAO.database import SessionLocal
 from api.ORM.models_sqlalchemy import Cuenta, Carrito, MetodoPagoCuenta, TipoCuenta
-from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse, CuentaAdminUpdateRequest, CambiarTipoCuentaRequest
+from api.DTO.models import CuentaCreate, LoginRequest,CuentaNombreCorreo, CorreoRequest, CuentaResponse, CuentaAdminUpdateRequest, CambiarTipoCuentaRequest, CambiarContrasenaRequest,RestablecerContrasenaRequest, SolicitarRecuperacionRequest
 from passlib.hash import bcrypt
 import random
 import string
@@ -301,3 +301,87 @@ def cambiar_tipo_cuenta(data: CambiarTipoCuentaRequest, db: Session = Depends(ge
     db.commit()
 
     return {"mensaje": f"Tipo de cuenta actualizado correctamente a {data.idtipocuenta}"}
+
+@router.post("/cambiar-contrasena")
+def cambiar_contrasena(data: CambiarContrasenaRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.IDCUENTA == data.idcuenta).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+
+    if not bcrypt.verify(data.contrasena_actual, cuenta.PASSWORD):
+        raise HTTPException(status_code=401, detail="La contraseña actual no es válida")
+
+    if bcrypt.verify(data.contrasena_nueva, cuenta.PASSWORD):
+        raise HTTPException(status_code=400, detail="La nueva contraseña no puede ser igual a la actual")
+
+    cuenta.PASSWORD = bcrypt.hash(data.contrasena_nueva)
+    db.commit()
+
+    return {"mensaje": "Contraseña actualizada correctamente"}
+
+
+def generar_token_recuperacion(longitud=6):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=longitud))
+
+@router.post("/solicitar-recuperacion")
+def solicitar_recuperacion(data: SolicitarRecuperacionRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.CORREO == data.correo).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="No se encontró ninguna cuenta con ese correo.")
+
+    token = generar_token_recuperacion()
+    cuenta.TOKEN = token
+    db.commit()
+
+    # Enviar correo
+    remitente = os.getenv("EMAIL_REMITENTE")
+    contraseña = os.getenv("EMAIL_CONTRASENA")
+
+    msg = EmailMessage()
+    msg["Subject"] = "Recuperación de contraseña – ChibchaWeb"
+    msg["From"] = formataddr(("ChibchaWeb", remitente))
+    msg["To"] = data.correo
+    msg.set_content(f"""
+Hola {cuenta.NOMBRECUENTA},
+
+Has solicitado restablecer tu contraseña en ChibchaWeb.
+
+Tu código de recuperación es:
+    {token}
+
+Ingresa este código en la aplicación para definir tu nueva contraseña.
+
+Si no solicitaste este cambio, ignora este correo.
+
+— El equipo de ChibchaWeb
+""")
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(remitente, contraseña)
+            smtp.send_message(msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al enviar el correo: {e}")
+
+    return {"mensaje": "Correo de recuperación enviado correctamente"}
+
+@router.post("/restablecer-contrasena")
+def restablecer_contrasena(data: RestablecerContrasenaRequest, db: Session = Depends(get_db)):
+    cuenta = db.query(Cuenta).filter(Cuenta.CORREO == data.correo).first()
+
+    if not cuenta:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+
+    if cuenta.TOKEN != data.token:
+        raise HTTPException(status_code=400, detail="Código de recuperación inválido.")
+
+    if bcrypt.verify(data.nueva_contrasena, cuenta.PASSWORD):
+        raise HTTPException(status_code=400, detail="La nueva contraseña no puede ser igual a la actual.")
+
+    cuenta.PASSWORD = bcrypt.hash(data.nueva_contrasena)
+    cuenta.TOKEN = "NA"  # Invalidamos el token
+    db.commit()
+
+    return {"mensaje": "Contraseña restablecida correctamente"}
