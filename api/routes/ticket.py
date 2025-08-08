@@ -29,7 +29,7 @@ def crear_ticket(data: CrearTicketRequest, db: Session = Depends(get_db)):
         DESCRTICKET=data.descrip_ticket,
         NIVEL=1,
         FCHCREACION=date.today(),
-        ESTADOTICKET=1,
+        ESTADOTICKET=3,
         FCHSOLUCION=None,
         IDEMPLEADO=None
     )
