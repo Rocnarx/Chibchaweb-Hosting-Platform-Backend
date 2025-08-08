@@ -5,9 +5,7 @@ from api.DAO.database import SessionLocal
 from api.ORM.models_sqlalchemy import Ticket, Cuenta, RespuestaTicket
 from api.DTO.models import CrearTicketRequest, RespuestaTicketRequest, CambiarEstadoTicketRequest, CambiarNivelTicketRequest, AsignarTicketRequest
 from api.AIGEN.AI_utils import clasificar_correo, generar_respuesta_correo, enviar_email, guardar_ticket_json, agregar_respuesta_a_historial
-import glob
-import os
-import json
+
 router = APIRouter()
 
 def get_db():

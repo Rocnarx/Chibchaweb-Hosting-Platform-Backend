@@ -14,6 +14,7 @@ from io import BytesIO
 import uuid
 from datetime import timedelta, date
 from api.AIGEN.AI_utils import generar_dominios_desde_descripcion
+from sqlalchemy import func
 router = APIRouter()
 
 
@@ -294,55 +295,70 @@ def agregar_dominio_a_carrito(data: AgregarDominioRequest, db: Session = Depends
 
 @router.put("/TransferenciaDominio")
 def transferencia_dominio(data: TransferenciaDominioRequest, db: Session = Depends(get_db)):
-    # Buscar el dominio
+    # Buscar dominio
     dominio = db.query(Dominio).filter_by(IDDOMINIO=data.iddominio).first()
     if not dominio:
         raise HTTPException(status_code=404, detail="Dominio no encontrado")
-    
-    # Buscar la cuenta de origen con IDORIGEN
+
+    # Cuenta origen y destino
     cuenta_origen = db.query(Cuenta).filter_by(IDCUENTA=data.idcuenta_origen).first()
     if not cuenta_origen:
         raise HTTPException(status_code=404, detail="Cuenta de origen no encontrada")
-    
-    # Buscar la cuenta de destino usando el CORREODESTINO
+
     cuenta_destino = db.query(Cuenta).filter_by(CORREO=data.correo_destino).first()
     if not cuenta_destino:
         raise HTTPException(status_code=404, detail="Cuenta de destino no encontrada")
 
-    # Obtener el IDMETODOPAGOCUENTA de la cuenta destino
+    # Método pago destino
     metodo_pago_destino = db.query(MetodoPagoCuenta).filter_by(IDCUENTA=cuenta_destino.IDCUENTA).first()
     if not metodo_pago_destino:
         raise HTTPException(status_code=404, detail="Método de pago para la cuenta de destino no encontrado")
 
-    # Crear un nuevo carrito para la cuenta destino
-    nuevo_carrito = Carrito(
-        IDESTADOCARRITO='3',  # Estado '3' significa TRANSFERIDO
-        IDCUENTA=cuenta_destino.IDCUENTA,  # Cuenta destino
-        IDMETODOPAGOCUENTA=metodo_pago_destino.IDMETODOPAGOCUENTA  # Usamos el mismo IDMETODOPAGOCUENTA de la cuenta destino
-    )
-    db.add(nuevo_carrito)
-    db.commit()
-    db.refresh(nuevo_carrito)
-    
-    # Actualizar la relación CARRITODOMINIO para que apunte al nuevo carrito
+    # Relación dominio-carrito ORIGINAL (guardamos el carrito original antes de mover)
     car_dominio = db.query(CarritoDominio).join(Carrito).filter(
         CarritoDominio.IDDOMINIO == data.iddominio,
         Carrito.IDCUENTA == data.idcuenta_origen
     ).first()
-
     if not car_dominio:
         raise HTTPException(status_code=404, detail="Relación dominio-carrito no encontrada en cuenta de origen")
 
-    # Actualizamos el IDCARRITO en CARRITODOMINIO para que apunte al nuevo carrito
+    carrito_original_id = car_dominio.IDCARRITO
+
+    # Crear carrito destino (estado "3" = TRANSFERIDO)
+    nuevo_carrito = Carrito(
+        IDESTADOCARRITO='3',
+        IDCUENTA=cuenta_destino.IDCUENTA,
+        IDMETODOPAGOCUENTA=metodo_pago_destino.IDMETODOPAGOCUENTA
+    )
+    db.add(nuevo_carrito)
+    db.commit()
+    db.refresh(nuevo_carrito)
+
+    # Mover relación al nuevo carrito
     car_dominio.IDCARRITO = nuevo_carrito.IDCARRITO
     db.commit()
 
-    # Marcar el carrito como "TRANSFERIDO" si es necesario
-    if nuevo_carrito.IDESTADOCARRITO != '3':  # Si no está ya transferido
+    # Marcar estado (por si acaso)
+    if nuevo_carrito.IDESTADOCARRITO != '3':
         nuevo_carrito.IDESTADOCARRITO = '3'
         db.commit()
 
-    # Generar una respuesta que indique que la transferencia fue exitosa
+    # ===== Clonar la VIGENCIA (Factura) =====
+    # Tomamos la última factura del carrito original (por fecha de pago más reciente)
+    factura_origen = db.query(Factura).filter(
+        Factura.IDCARRITO == carrito_original_id
+    ).order_by(Factura.PAGOFACTURA.desc()).first()
+
+    if factura_origen:
+        factura_nueva = Factura(
+            IDCARRITO=nuevo_carrito.IDCARRITO,
+            PAGOFACTURA=date.today(),
+            VIGFACTURA=factura_origen.VIGFACTURA  # preservamos la vigencia
+        )
+        db.add(factura_nueva)
+        db.commit()
+    # Si no hay factura de origen, no creamos nada (el endpoint de vigencia hará LEFT JOIN y no fallará)
+
     return {
         "message": f"Dominio {dominio.NOMBREPAGINA} transferido de {cuenta_origen.NOMBRECUENTA} a {cuenta_destino.NOMBRECUENTA}",
         "iddominio": dominio.IDDOMINIO,
@@ -382,18 +398,20 @@ def dominios_adquiridos(idcuenta: str, db: Session = Depends(get_db)):
 
 @router.get("/dominios/vigencia")
 def obtener_vigencia_dominios(idcuenta: str = Query(...), db: Session = Depends(get_db)):
-    resultados = (
+    sub = (
         db.query(
-            Dominio.NOMBREPAGINA,
-            Factura.VIGFACTURA
+            Dominio.NOMBREPAGINA.label("nombre"),
+            func.max(Factura.VIGFACTURA).label("vigencia_max")
         )
         .join(CarritoDominio, CarritoDominio.IDDOMINIO == Dominio.IDDOMINIO)
         .join(Carrito, Carrito.IDCARRITO == CarritoDominio.IDCARRITO)
-        .join(Factura, Factura.IDCARRITO == Carrito.IDCARRITO)
+        .outerjoin(Factura, Factura.IDCARRITO == Carrito.IDCARRITO)  # LEFT JOIN
         .filter(Carrito.IDCUENTA == idcuenta, Dominio.OCUPADO == True)
-        .all()
+        .group_by(Dominio.NOMBREPAGINA)
+        .subquery()
     )
 
+    resultados = db.query(sub.c.nombre, sub.c.vigencia_max).all()
     if not resultados:
         raise HTTPException(status_code=404, detail="No se encontraron dominios con vigencia para esta cuenta")
 
@@ -401,10 +419,14 @@ def obtener_vigencia_dominios(idcuenta: str = Query(...), db: Session = Depends(
     dominios_con_vigencia = []
 
     for nombre, vigencia in resultados:
-        dias_restantes = (vigencia - hoy).days
+        if vigencia is None:
+            dias_restantes = None  # o 0 si prefieres: 0
+        else:
+            dias_restantes = (vigencia - hoy).days
 
         dominios_con_vigencia.append({
             "nombre_dominio": nombre,
+            "vigencia": vigencia,
             "dias_restantes": dias_restantes
         })
 
